@@ -30,10 +30,28 @@ resource chatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01'
   ]
 }
 
+resource chatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
+  name: '${name}/gpt-4o'
+  sku: {
+    name: 'Standard'
+    capacity: 1
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: 'gpt-4o'
+      version: '2024-05-13'
+    }
+  }
+  dependsOn: [
+    openai
+  ]
+}
 resource embeddingModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
   name: '${name}/text-embedding-3-large'
   sku: {
     name: 'Standard'
+    capacity: 1
   }
   properties: {
     model: {
@@ -46,6 +64,5 @@ resource embeddingModel 'Microsoft.CognitiveServices/accounts/deployments@2023-0
     openai
   ]
 }
-
 output endpoint string = openai.properties.endpoint
 
