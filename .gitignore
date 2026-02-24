@@ -1,0 +1,6 @@
+# Mac junk
+.DS_Store
+
+# Bicep compiled output
+*.json
+
