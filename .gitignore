@@ -1,5 +1,7 @@
 # Mac junk
 .DS_Store
+.env
+documents/
 
 # Bicep compiled output
 *.json

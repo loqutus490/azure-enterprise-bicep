@@ -1,31 +1,16 @@
-targetScope = 'resourceGroup'
+param location string
+param openAiName string
 
-param environment string
-param location string = 'eastus'
-param namePrefix string = 'legalrag'
-
-var suffix = '${namePrefix}-${environment}'
-
-module storage './modules/storage.bicep' = {
-  name: 'storage'
-  params: {
-    name: 'st${uniqueString(resourceGroup().id)}'
-    location: location
+resource openai 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
+  name: openAiName
+  location: location
+  kind: 'OpenAI'
+  sku: {
+    name: 'S0'
+  }
+  properties: {
+    customSubDomainName: openAiName
+    publicNetworkAccess: 'enabled'
   }
 }
 
-module search './modules/search.bicep' = {
-  name: 'search'
-  params: {
-    name: 'srch-${suffix}'
-    location: location
-  }
-}
-
-module openai './modules/openai.bicep' = {
-  name: 'openai'
-  params: {
-    name: 'openai-${suffix}'
-    location: location
-  }
-}
