@@ -1,0 +1,30 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Validate Bicep
+        run: |
+          az bicep build --file infra/main.bicep
+
+      - name: Deploy to Azure
+        run: |
+          az deployment group create \
+            --resource-group rg-legal-dev \
+            --template-file infra/main.bicep \
+            --parameters infra/params/dev.bicepparam
