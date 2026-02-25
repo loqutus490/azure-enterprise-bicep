@@ -1,6 +1,7 @@
 # Mac junk
 .DS_Store
 .env
+local.env
 documents/
 
 # Bicep compiled output
