@@ -3,7 +3,6 @@ targetScope = 'resourceGroup'
 param environment string
 param location string = 'westus3'
 param storageLocation string = 'eastus'
-param existingServicesLocation string = 'eastus'
 param namePrefix string = 'agent13'
 
 module storage './modules/storage.bicep' = {
@@ -18,7 +17,7 @@ module search './modules/search.bicep' = {
   name: 'search'
   params: {
     name: '${namePrefix}-search-${environment}'
-    location: existingServicesLocation
+    location: location
   }
 }
 
@@ -26,7 +25,7 @@ module openai './modules/openai.bicep' = {
   name: 'openai'
   params: {
     name: '${namePrefix}-openai-${environment}'
-    location: existingServicesLocation
+    location: location
   }
 }
 
