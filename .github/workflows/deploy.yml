@@ -4,10 +4,23 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    env:
+      ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
 
     steps:
       - name: Checkout repository
@@ -25,6 +38,6 @@ jobs:
       - name: Deploy to Azure
         run: |
           az deployment group create \
-            --resource-group rg-legal-dev \
+            --resource-group rg-legal-${{ env.ENVIRONMENT }} \
             --template-file infra/main.bicep \
-            --parameters infra/params/dev.bicepparam
+            --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam

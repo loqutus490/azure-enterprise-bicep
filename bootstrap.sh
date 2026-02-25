@@ -10,7 +10,7 @@ LOCATION="westus2"
 RESOURCE_GROUP="legal-rag-rg"
 SEARCH_SERVICE="legalragsearch$RANDOM"
 OPENAI_RESOURCE="legalragopenai$RANDOM"
-OPENAI_DEPLOYMENT="gpt-4o-mini"
+OPENAI_DEPLOYMENT="gpt-4o"
 APP_PLAN="legalrag-plan"
 WEBAPP_NAME="legalragapp$RANDOM"
 

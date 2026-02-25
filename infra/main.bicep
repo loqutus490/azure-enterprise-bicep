@@ -54,3 +54,11 @@ module app './modules/appservice.bicep' = {
     appInsightsKey: monitoring.outputs.instrumentationKey
   }
 }
+
+module budget './modules/budget.bicep' = {
+  name: 'budget'
+  params: {
+    environment: environment
+    amount: environment == 'prod' ? 1000 : 200
+  }
+}
