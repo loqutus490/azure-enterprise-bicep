@@ -7,7 +7,9 @@ using Azure.Search.Documents.Models;
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
-app.MapGet("/", () => "FULL RAG SYSTEM RUNNING");
+// Serve the web chat frontend
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.MapPost("/ask", async (HttpContext context) =>
 {
