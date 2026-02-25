@@ -11,6 +11,16 @@ echo "--------------------------------------------------"
 echo "🔎 Fetching Web App name..."
 WEBAPP_NAME=$(az webapp list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv)
 
+echo "🔓 Enabling SCM basic auth (required for zip deploy)..."
+az resource update \
+  --resource-group $RESOURCE_GROUP \
+  --name scm \
+  --namespace Microsoft.Web \
+  --resource-type basicPublishingCredentialsPolicies \
+  --parent "sites/$WEBAPP_NAME" \
+  --set properties.allow=true \
+  --output none
+
 echo "🔨 Publishing (framework-dependent)..."
 rm -rf publish publish.zip
 dotnet publish "$PROJECT_PATH" -c Release -o ./publish
