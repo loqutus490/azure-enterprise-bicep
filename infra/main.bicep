@@ -29,3 +29,28 @@ module openai './modules/openai.bicep' = {
     location: location
   }
 }
+
+module keyvault './modules/keyvault.bicep' = {
+  name: 'keyvault'
+  params: {
+    name: 'kv-${suffix}'
+    location: location
+  }
+}
+
+module monitoring './modules/monitoring.bicep' = {
+  name: 'monitoring'
+  params: {
+    name: 'appi-${suffix}'
+    location: location
+  }
+}
+
+module app './modules/appservice.bicep' = {
+  name: 'app'
+  params: {
+    name: 'api-${suffix}'
+    location: location
+    appInsightsKey: monitoring.outputs.instrumentationKey
+  }
+}
