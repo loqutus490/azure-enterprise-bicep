@@ -12,6 +12,7 @@ load_dotenv()
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
+AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
 
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
@@ -87,7 +88,7 @@ Answer:
 """
 
     response = openai_client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model=AZURE_OPENAI_CHAT_DEPLOYMENT,
         messages=[
             {"role": "system", "content": "You are a helpful legal AI assistant."},
             {"role": "user", "content": prompt}

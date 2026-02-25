@@ -6,3 +6,10 @@ documents/
 # Bicep compiled output
 *.json
 
+# Python
+__pycache__/
+*.pyc
+
+# Build artifacts
+publish/
+publish.zip
