@@ -1,10 +1,8 @@
 targetScope = 'resourceGroup'
 
 param environment string
-param location string = 'eastus'
-param namePrefix string = 'legalrag'
-
-var suffix = '${namePrefix}-${environment}'
+param location string = 'westus3'
+param namePrefix string = 'agent13'
 
 module storage './modules/storage.bicep' = {
   name: 'storage'
@@ -17,7 +15,7 @@ module storage './modules/storage.bicep' = {
 module search './modules/search.bicep' = {
   name: 'search'
   params: {
-    name: 'srch-${suffix}'
+    name: '${namePrefix}-search-${environment}'
     location: location
   }
 }
@@ -25,7 +23,7 @@ module search './modules/search.bicep' = {
 module openai './modules/openai.bicep' = {
   name: 'openai'
   params: {
-    name: 'openai-${suffix}'
+    name: '${namePrefix}-openai-${environment}'
     location: location
   }
 }
@@ -33,7 +31,7 @@ module openai './modules/openai.bicep' = {
 module keyvault './modules/keyvault.bicep' = {
   name: 'keyvault'
   params: {
-    name: 'kv-${suffix}'
+    name: '${namePrefix}-kv-${environment}'
     location: location
   }
 }
@@ -41,7 +39,7 @@ module keyvault './modules/keyvault.bicep' = {
 module monitoring './modules/monitoring.bicep' = {
   name: 'monitoring'
   params: {
-    name: 'appi-${suffix}'
+    name: '${namePrefix}-insights-${environment}'
     location: location
   }
 }
@@ -49,7 +47,7 @@ module monitoring './modules/monitoring.bicep' = {
 module app './modules/appservice.bicep' = {
   name: 'app'
   params: {
-    name: 'api-${suffix}'
+    name: '${namePrefix}-app-${environment}'
     location: location
     appInsightsKey: monitoring.outputs.instrumentationKey
   }
