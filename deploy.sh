@@ -9,7 +9,13 @@ echo "🚀 CLEAN .NET 8 FRAMEWORK-DEPENDENT DEPLOYMENT"
 echo "--------------------------------------------------"
 
 echo "🔎 Fetching Web App name..."
-WEBAPP_NAME=$(az webapp list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv)
+WEBAPP_NAME=$(az webapp list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv 2>/dev/null)
+
+if [ -z "$WEBAPP_NAME" ]; then
+  echo "❌ No Web App found in resource group '$RESOURCE_GROUP'. Run infrastructure deployment first."
+  exit 1
+fi
+echo "   App: $WEBAPP_NAME"
 
 echo "🔓 Enabling SCM basic auth (required for zip deploy)..."
 az resource update \
@@ -19,7 +25,8 @@ az resource update \
   --resource-type basicPublishingCredentialsPolicies \
   --parent "sites/$WEBAPP_NAME" \
   --set properties.allow=true \
-  --output none
+  --output none \
+|| echo "   ⚠️  Could not set SCM basic auth policy (may already be enabled or not supported on this plan), continuing..."
 
 echo "🔨 Publishing (framework-dependent)..."
 rm -rf publish publish.zip
