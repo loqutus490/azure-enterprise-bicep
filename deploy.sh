@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-RESOURCE_GROUP="${RESOURCE_GROUP:-rg-legal-dev}"
+RESOURCE_GROUP="${RESOURCE_GROUP:-agent13-dev-rg}"
 PROJECT_PATH="./src/LegalRagApp.csproj"
 
 echo "--------------------------------------------------"
