@@ -2,13 +2,14 @@ targetScope = 'resourceGroup'
 
 param environment string
 param location string = 'westus3'
+param storageLocation string = 'eastus'
 param namePrefix string = 'agent13'
 
 module storage './modules/storage.bicep' = {
   name: 'storage'
   params: {
     name: 'st${uniqueString(resourceGroup().id)}'
-    location: location
+    location: storageLocation
   }
 }
 
