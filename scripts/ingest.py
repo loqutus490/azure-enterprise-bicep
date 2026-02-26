@@ -142,7 +142,7 @@ def validate_search_credentials(client: SearchClient, index_name: str):
                     {"name": "content", "type": "Edm.String", "searchable": True},
                     {"name": "source", "type": "Edm.String", "filterable": True},
                     {"name": "chunk_index", "type": "Edm.Int32", "filterable": True, "sortable": True},
-                    {"name": "contentVector", "type": "Collection(Edm.Single)", "dimensions": 1536, "vectorSearchConfiguration": "vector-config"}
+                    {"name": "contentVector", "type": "Collection(Edm.Single)", "dimensions": 3072, "vectorSearchConfiguration": "vector-config"}
                 ],
                 "vectorSearch": {
                     "algorithmConfigurations": [
@@ -185,7 +185,7 @@ def validate_search_credentials(client: SearchClient, index_name: str):
 
 
 # Validate search credentials at startup and fail fast with guidance
-def validate_openai_credentials(client: AzureOpenAI, model: str = "text-embedding-3-small"):
+def validate_openai_credentials(client: AzureOpenAI, model: str = "text-embedding-3-large"):
     """Quickly validate Azure OpenAI credentials by making a lightweight embedding call.
 
     Exits the process with guidance if validation fails.
@@ -308,7 +308,7 @@ def ingest_documents():
 
             try:
                 # Use retry-enabled helper to create embeddings for a list of chunks.
-                response = create_embeddings(client, "text-embedding-3-small", chunks)
+                response = create_embeddings(client, "text-embedding-3-large", chunks)
                 embeddings = [item.embedding for item in response.data]
             except Exception as e:
                 logger.error("Failed to create embeddings for %s: %s", filename, e)

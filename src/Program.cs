@@ -7,6 +7,9 @@ using Azure.Search.Documents.Models;
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
+// Single HttpClient instance to avoid socket exhaustion under load
+var openAiHttpClient = new HttpClient();
+
 // Serve the web chat frontend
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -77,9 +80,6 @@ Question:
 Answer:
 """;
 
-    var httpClient = new HttpClient();
-    httpClient.DefaultRequestHeaders.Add("api-key", openAiKey);
-
     var body = new
     {
         messages = new[]
@@ -95,10 +95,12 @@ Answer:
     var apiUrl = $"{openAiEndpoint.TrimEnd('/')}/" +
         $"openai/deployments/{deployment}/chat/completions?api-version=2024-06-01";
 
-    var response = await httpClient.PostAsync(
-        apiUrl,
-        new StringContent(json, Encoding.UTF8, "application/json")
-    );
+    // Build per-request message so the shared HttpClient stays thread-safe
+    using var requestMessage = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+    requestMessage.Headers.Add("api-key", openAiKey);
+    requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+    var response = await openAiHttpClient.SendAsync(requestMessage);
 
     var responseString = await response.Content.ReadAsStringAsync();
 

@@ -14,6 +14,9 @@ param entraClientId string = ''
 @description('Entra ID app registration client ID for the Bot Service. Leave empty to skip bot deployment.')
 param botEntraAppId string = ''
 
+@description('Email addresses for budget alert notifications.')
+param budgetContactEmails array = []
+
 @description('Enable VNet integration and private endpoints for production security.')
 param enableNetworking bool = environment == 'prod'
 
@@ -120,6 +123,7 @@ module budget './modules/budget.bicep' = {
   params: {
     environment: environment
     amount: environment == 'prod' ? 1000 : 200
+    contactEmails: budgetContactEmails
   }
 }
 

@@ -13,7 +13,7 @@ echo "🚀 CLEAN .NET 8 FRAMEWORK-DEPENDENT DEPLOYMENT"
 echo "--------------------------------------------------"
 
 echo "🔎 Fetching Web App name..."
-WEBAPP_NAME=$(az webapp list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv 2>/dev/null)
+WEBAPP_NAME=$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv 2>/dev/null)
 
 if [ -z "$WEBAPP_NAME" ]; then
   echo "❌ No Web App found in resource group '$RESOURCE_GROUP'. Run infrastructure deployment first."
@@ -23,7 +23,7 @@ echo "   App: $WEBAPP_NAME"
 
 echo "🔓 Enabling SCM basic auth (required for zip deploy)..."
 az resource update \
-  --resource-group $RESOURCE_GROUP \
+  --resource-group "$RESOURCE_GROUP" \
   --name scm \
   --namespace Microsoft.Web \
   --resource-type basicPublishingCredentialsPolicies \
@@ -41,14 +41,14 @@ echo "📦 Packaging..."
 
 echo "🚀 Deploying..."
 az webapp deploy \
-  --resource-group $RESOURCE_GROUP \
+  --resource-group "$RESOURCE_GROUP" \
   --name "$WEBAPP_NAME" \
   --src-path ./publish.zip \
   --type zip
 
 echo "🔄 Restarting app..."
 az webapp restart \
-  --resource-group $RESOURCE_GROUP \
+  --resource-group "$RESOURCE_GROUP" \
   --name "$WEBAPP_NAME"
 
 echo "✅ Deployment complete"

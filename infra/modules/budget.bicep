@@ -1,6 +1,9 @@
 param environment string
 param amount int
 
+@description('Email addresses to receive budget alert notifications.')
+param contactEmails array = []
+
 resource budget 'Microsoft.Consumption/budgets@2021-10-01' = {
   name: 'budget-${environment}'
   properties: {
@@ -15,7 +18,7 @@ resource budget 'Microsoft.Consumption/budgets@2021-10-01' = {
         enabled: true
         operator: 'GreaterThan'
         threshold: 80
-        contactEmails: []
+        contactEmails: contactEmails
         thresholdType: 'Actual'
       }
     }
