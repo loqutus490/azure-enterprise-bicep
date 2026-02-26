@@ -1,14 +1,18 @@
+import os
+from dotenv import load_dotenv
 from openai import AzureOpenAI
 
+load_dotenv()
+
 client = AzureOpenAI(
-    api_key="42b9fb3719704f068f7ae2d6d3401471",
-    azure_endpoint="https://agent13-openai-dev.openai.azure.com//",
+    api_key=os.environ["AZURE_OPENAI_KEY"],
+    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
     api_version="2024-12-01-preview"
 )
 
 response = client.embeddings.create(
-    model="text-embedding-3-small",
+    model="text-embedding-3-large",
     input="Test embedding."
 )
 
-print(len(response.data[0].embedding))
+print(f"Embedding dimensions: {len(response.data[0].embedding)}")
