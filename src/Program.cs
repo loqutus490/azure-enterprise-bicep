@@ -53,7 +53,7 @@ app.MapPost("/ask", async (HttpContext context) =>
     }
 
     // ============================
-    // AZURE OPENAI (v1 API)
+    // AZURE OPENAI
     // ============================
 
     var openAiEndpoint = Environment.GetEnvironmentVariable("AzureOpenAI__Endpoint");
@@ -78,11 +78,10 @@ Answer:
 """;
 
     var httpClient = new HttpClient();
-    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {openAiKey}");
+    httpClient.DefaultRequestHeaders.Add("api-key", openAiKey);
 
     var body = new
     {
-        model = deployment,
         messages = new[]
         {
             new { role = "user", content = prompt }
@@ -93,8 +92,11 @@ Answer:
 
     var json = JsonSerializer.Serialize(body);
 
+    var apiUrl = $"{openAiEndpoint.TrimEnd('/')}/" +
+        $"openai/deployments/{deployment}/chat/completions?api-version=2024-06-01";
+
     var response = await httpClient.PostAsync(
-        $"{openAiEndpoint}openai/v1/chat/completions",
+        apiUrl,
         new StringContent(json, Encoding.UTF8, "application/json")
     );
 
