@@ -7,6 +7,9 @@ using Azure.Search.Documents.Models;
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
+// Single HttpClient instance to avoid socket exhaustion under load
+var openAiHttpClient = new HttpClient();
+
 // Serve the web chat frontend
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -53,7 +56,7 @@ app.MapPost("/ask", async (HttpContext context) =>
     }
 
     // ============================
-    // AZURE OPENAI (v1 API)
+    // AZURE OPENAI
     // ============================
 
     var openAiEndpoint = Environment.GetEnvironmentVariable("AzureOpenAI__Endpoint");
@@ -77,12 +80,8 @@ Question:
 Answer:
 """;
 
-    var httpClient = new HttpClient();
-    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {openAiKey}");
-
     var body = new
     {
-        model = deployment,
         messages = new[]
         {
             new { role = "user", content = prompt }
@@ -93,10 +92,15 @@ Answer:
 
     var json = JsonSerializer.Serialize(body);
 
-    var response = await httpClient.PostAsync(
-        $"{openAiEndpoint}openai/v1/chat/completions",
-        new StringContent(json, Encoding.UTF8, "application/json")
-    );
+    var apiUrl = $"{openAiEndpoint.TrimEnd('/')}/" +
+        $"openai/deployments/{deployment}/chat/completions?api-version=2024-06-01";
+
+    // Build per-request message so the shared HttpClient stays thread-safe
+    using var requestMessage = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+    requestMessage.Headers.Add("api-key", openAiKey);
+    requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+    var response = await openAiHttpClient.SendAsync(requestMessage);
 
     var responseString = await response.Content.ReadAsStringAsync();
 

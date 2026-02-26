@@ -78,7 +78,11 @@ scripts/
   setup-sharepoint-indexer.sh   # Configure SharePoint search indexer
   bootstrap.sh                  # Full environment bootstrap
   deploy.sh                     # App deployment
+  full-deploy.sh                # Build + configure + deploy in one step
   tenant-deploy.sh              # Multi-tenant deployment
+  run-local.sh                  # Run the app locally
+  ingest.py                     # Document ingestion (embeddings + upload)
+  query.py                      # Interactive RAG query CLI
 ```
 
 ## Quick Start
@@ -109,8 +113,8 @@ az deployment group create \
 ### 2. Enable Entra ID Authentication
 
 ```bash
-# Register the app in Entra ID
-./scripts/setup-entra.sh -n agent13-app-prod
+# Register the app in Entra ID (stores secret in Key Vault automatically)
+./scripts/setup-entra.sh -n agent13-app-prod -v agent13-kv-prod
 
 # Redeploy with the client ID from the output
 az deployment group create \
@@ -122,12 +126,15 @@ az deployment group create \
 ### 3. Connect SharePoint Documents
 
 ```bash
-# Configure the SharePoint indexer
+# Configure the SharePoint indexer (uses Entra creds from step 2)
 ./scripts/setup-sharepoint-indexer.sh \
   -s agent13-search-prod \
   -k <search-admin-key> \
   -t contoso \
-  -u /sites/LegalDocs
+  -u /sites/LegalDocs \
+  -a <entra-app-id> \
+  -p <entra-app-secret> \
+  -r
 ```
 
 ### 4. Ingest Documents (Manual Alternative)
@@ -139,15 +146,15 @@ cp local.env.example local.env
 # Edit local.env with your keys
 
 pip install -r requirements.txt
-python3 ingest.py
+python3 scripts/ingest.py
 ```
 
 ### 5. Deploy the Application
 
 ```bash
-./deploy.sh
+./scripts/deploy.sh
 # Or use the full deployment script
-./tenant-deploy.sh -t <tenant-id> -s <subscription-id> -e prod
+./scripts/tenant-deploy.sh -t <tenant-id> -s <subscription-id> -e prod
 ```
 
 ### 6. Enable Teams Bot

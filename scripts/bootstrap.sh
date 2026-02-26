@@ -2,6 +2,10 @@
 
 set -e
 
+# Resolve repo root so the script works from any directory
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_ROOT"
+
 # ==========================
 # CONFIG
 # ==========================
@@ -59,13 +63,13 @@ az cognitiveservices account create \
 
 sleep 20
 
-echo "🚀 Deploying GPT-4o-mini model..."
+echo "🚀 Deploying GPT-4o model..."
 az cognitiveservices account deployment create \
-  --name $OPENAI_RESOURCE \
-  --resource-group $RESOURCE_GROUP \
-  --deployment-name $OPENAI_DEPLOYMENT \
-  --model-name gpt-4o-mini \
-  --model-version "2024-07-18" \
+  --name "$OPENAI_RESOURCE" \
+  --resource-group "$RESOURCE_GROUP" \
+  --deployment-name "$OPENAI_DEPLOYMENT" \
+  --model-name gpt-4o \
+  --model-version "2024-05-13" \
   --model-format OpenAI \
   --scale-settings-scale-type Standard \
   > /dev/null
@@ -143,10 +147,11 @@ zip -r ../publish.zip .
 cd ..
 
 echo "🚀 Deploying Code..."
-az webapp deployment source config-zip \
-  --resource-group $RESOURCE_GROUP \
-  --name $WEBAPP_NAME \
-  --src publish.zip \
+az webapp deploy \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$WEBAPP_NAME" \
+  --src-path publish.zip \
+  --type zip \
   > /dev/null
 
 # ==========================

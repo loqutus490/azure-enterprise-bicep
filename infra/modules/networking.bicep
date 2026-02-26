@@ -194,10 +194,26 @@ resource kvDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-0
   }
 }
 
+// Define subnets as standalone resources for stable output references
+resource appSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
+  parent: vnet
+  name: 'snet-app'
+}
+
+resource peSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
+  parent: vnet
+  name: 'snet-private-endpoints'
+}
+
+resource botSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
+  parent: vnet
+  name: 'snet-bot'
+}
+
 output vnetId string = vnet.id
-output appSubnetId string = vnet.properties.subnets[0].id
-output peSubnetId string = vnet.properties.subnets[1].id
-output botSubnetId string = vnet.properties.subnets[2].id
+output appSubnetId string = appSubnet.id
+output peSubnetId string = peSubnet.id
+output botSubnetId string = botSubnet.id
 output searchDnsZoneId string = searchDnsZone.id
 output openaiDnsZoneId string = openaiDnsZone.id
 output kvDnsZoneId string = kvDnsZone.id

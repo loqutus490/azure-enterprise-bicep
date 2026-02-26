@@ -32,6 +32,7 @@ resource chatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01'
 resource embeddingModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
   parent: openai
   name: 'text-embedding-3-large'
+  dependsOn: [chatModel]
   sku: {
     name: 'Standard'
     capacity: 1
