@@ -78,7 +78,11 @@ scripts/
   setup-sharepoint-indexer.sh   # Configure SharePoint search indexer
   bootstrap.sh                  # Full environment bootstrap
   deploy.sh                     # App deployment
+  full-deploy.sh                # Build + configure + deploy in one step
   tenant-deploy.sh              # Multi-tenant deployment
+  run-local.sh                  # Run the app locally
+  ingest.py                     # Document ingestion (embeddings + upload)
+  query.py                      # Interactive RAG query CLI
 ```
 
 ## Quick Start
@@ -139,15 +143,15 @@ cp local.env.example local.env
 # Edit local.env with your keys
 
 pip install -r requirements.txt
-python3 ingest.py
+python3 scripts/ingest.py
 ```
 
 ### 5. Deploy the Application
 
 ```bash
-./deploy.sh
+./scripts/deploy.sh
 # Or use the full deployment script
-./tenant-deploy.sh -t <tenant-id> -s <subscription-id> -e prod
+./scripts/tenant-deploy.sh -t <tenant-id> -s <subscription-id> -e prod
 ```
 
 ### 6. Enable Teams Bot

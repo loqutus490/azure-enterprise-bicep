@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Resolve repo root so the script works from any directory
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_ROOT"
+
 ENV_FILE="${1:-./local.env}"
 
 if [ ! -f "$ENV_FILE" ]; then

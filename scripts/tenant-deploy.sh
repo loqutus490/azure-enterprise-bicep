@@ -28,6 +28,10 @@
 
 set -euo pipefail
 
+# Resolve repo root so the script works from any directory
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_ROOT"
+
 # -----------------------------------------------------------------------
 # Defaults
 # -----------------------------------------------------------------------
