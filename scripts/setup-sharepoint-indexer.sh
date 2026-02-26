@@ -19,7 +19,7 @@ usage() {
     echo "  -a  Entra ID application (client) ID for SharePoint access (required)"
     echo "  -p  Entra ID application client secret (required)"
     echo "  -d  Azure AD tenant ID (default: auto-detected from az CLI)"
-    echo "  -i  Index name (default: legal-documents)"
+    echo "  -i  Index name (default: legal-index)"
     echo "  -r  Run the indexer immediately after setup"
     echo ""
     echo "Prerequisites:"
@@ -40,7 +40,7 @@ SP_SITE_URL=""
 ENTRA_APP_ID=""
 ENTRA_APP_SECRET=""
 ENTRA_TENANT_ID=""
-INDEX_NAME="legal-documents"
+INDEX_NAME="legal-index"
 RUN_NOW=false
 
 while getopts "s:k:t:u:a:p:d:i:rh" opt; do
