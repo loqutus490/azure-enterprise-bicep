@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 from azure.search.documents import SearchClient
-from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential
 
 # ---------------------------
 # Load environment variables
@@ -21,16 +21,20 @@ AZURE_SEARCH_INDEX = os.getenv("AZURE_SEARCH_INDEX")
 # ---------------------------
 # Create clients
 # ---------------------------
-openai_client = AzureOpenAI(
-    api_key=AZURE_OPENAI_KEY,
-    api_version="2024-02-01",
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from openai import AzureOpenAI
+
+credential = DefaultAzureCredential()
+
+token_provider = get_bearer_token_provider(
+    credential,
+    "https://cognitiveservices.azure.com/.default"
 )
 
-search_client = SearchClient(
-    endpoint=AZURE_SEARCH_ENDPOINT,
-    index_name=AZURE_SEARCH_INDEX,
-    credential=AzureKeyCredential(AZURE_SEARCH_KEY),
+openai_client = AzureOpenAI(
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+    api_version="2024-02-01",
+    azure_ad_token_provider=token_provider,
 )
 
 # ---------------------------

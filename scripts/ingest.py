@@ -19,7 +19,7 @@ from azure.search.documents.indexes.models import (
     VectorSearch,
     VectorSearchAlgorithmConfiguration,
 )
-from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential
 
 # ---------------------------
 # Load environment variables
@@ -116,7 +116,7 @@ client = AzureOpenAI(
 search_client = SearchClient(
     endpoint=AZURE_SEARCH_ENDPOINT,
     index_name=AZURE_SEARCH_INDEX,
-    credential=AzureKeyCredential(AZURE_SEARCH_KEY),
+    credential=DefaultAzureCredential(),
 )
 
 
