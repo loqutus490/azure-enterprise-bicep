@@ -1,124 +1,26 @@
-using System.Text;
-using System.Text.Json;
-using Azure;
-using Azure.Search.Documents;
-using Azure.Search.Documents.Models;
+using Azure.AI.OpenAI;
+using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
-// Single HttpClient instance to avoid socket exhaustion under load
-var openAiHttpClient = new HttpClient();
-
-// Serve the web chat frontend
-app.UseDefaultFiles();
-app.UseStaticFiles();
-
-app.MapPost("/ask", async (HttpContext context) =>
+app.MapGet("/test-openai", async () =>
 {
-    var request = await JsonSerializer.DeserializeAsync<QuestionRequest>(
-        context.Request.Body,
-        new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-    );
+    var endpoint = new Uri("https://agent13-openai-dev.openai.azure.com/");
+    var credential = new DefaultAzureCredential();
 
-    if (request == null || string.IsNullOrWhiteSpace(request.Question))
-        return Results.BadRequest("Question is required.");
+    var openAiClient = new AzureOpenAIClient(endpoint, credential);
 
-    // ============================
-    // AZURE SEARCH (RAG Retrieval)
-    // ============================
+    var chatClient = openAiClient.GetChatClient("gpt-4.1-mini");
 
-    var searchEndpoint = Environment.GetEnvironmentVariable("AzureSearch__Endpoint");
-    var searchKey = Environment.GetEnvironmentVariable("AzureSearch__Key");
-    var indexName = Environment.GetEnvironmentVariable("AzureSearch__Index");
-
-    if (string.IsNullOrEmpty(searchEndpoint) ||
-        string.IsNullOrEmpty(searchKey) ||
-        string.IsNullOrEmpty(indexName))
-        return Results.Problem("Azure Search configuration missing.");
-
-    var searchClient = new SearchClient(
-        new Uri(searchEndpoint),
-        indexName,
-        new AzureKeyCredential(searchKey)
-    );
-
-    var searchResults = await searchClient.SearchAsync<SearchDocument>(request.Question);
-
-    var contextBuilder = new StringBuilder();
-
-    await foreach (var result in searchResults.Value.GetResultsAsync())
-    {
-        if (result.Document.TryGetValue("content", out var content))
+    var response = await chatClient.CompleteChatAsync(
+        new ChatMessage[]
         {
-            contextBuilder.AppendLine(content?.ToString());
-        }
-    }
+            new UserChatMessage("Say hello from private Azure OpenAI.")
+        });
 
-    // ============================
-    // AZURE OPENAI
-    // ============================
-
-    var openAiEndpoint = Environment.GetEnvironmentVariable("AzureOpenAI__Endpoint");
-    var openAiKey = Environment.GetEnvironmentVariable("AzureOpenAI__Key");
-    var deployment = Environment.GetEnvironmentVariable("AzureOpenAI__Deployment");
-
-    if (string.IsNullOrEmpty(openAiEndpoint) ||
-        string.IsNullOrEmpty(openAiKey) ||
-        string.IsNullOrEmpty(deployment))
-        return Results.Problem("Azure OpenAI configuration missing.");
-
-    var prompt = $"""
-You are a legal assistant. Use ONLY the context below to answer the question.
-
-Context:
-{contextBuilder}
-
-Question:
-{request.Question}
-
-Answer:
-""";
-
-    var body = new
-    {
-        messages = new[]
-        {
-            new { role = "user", content = prompt }
-        },
-        temperature = 0.2,
-        max_tokens = 800
-    };
-
-    var json = JsonSerializer.Serialize(body);
-
-    var apiUrl = $"{openAiEndpoint.TrimEnd('/')}/" +
-        $"openai/deployments/{deployment}/chat/completions?api-version=2024-06-01";
-
-    // Build per-request message so the shared HttpClient stays thread-safe
-    using var requestMessage = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-    requestMessage.Headers.Add("api-key", openAiKey);
-    requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-    var response = await openAiHttpClient.SendAsync(requestMessage);
-
-    var responseString = await response.Content.ReadAsStringAsync();
-
-    if (!response.IsSuccessStatusCode)
-        return Results.Problem($"OpenAI call failed: {responseString}");
-
-    using var doc = JsonDocument.Parse(responseString);
-
-    var answer = doc.RootElement
-        .GetProperty("choices")[0]
-        .GetProperty("message")
-        .GetProperty("content")
-        .GetString();
-
-    return Results.Json(new { answer });
+    return Results.Ok(response.Value.Content[0].Text);
 });
 
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-app.Run($"http://0.0.0.0:{port}");
+app.Run();
 
-record QuestionRequest(string Question);
