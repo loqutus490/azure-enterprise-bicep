@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
 from azure.identity import DefaultAzureCredential
 
 # ---------------------------
@@ -35,6 +36,12 @@ openai_client = AzureOpenAI(
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
     api_version="2024-02-01",
     azure_ad_token_provider=token_provider,
+)
+
+search_client = SearchClient(
+    endpoint=AZURE_SEARCH_ENDPOINT,
+    index_name=AZURE_SEARCH_INDEX,
+    credential=AzureKeyCredential(AZURE_SEARCH_KEY),
 )
 
 # ---------------------------

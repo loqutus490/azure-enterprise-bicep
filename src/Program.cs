@@ -25,13 +25,29 @@ app.UseAuthorization();
 // Managed Identity credential
 var credential = new DefaultAzureCredential();
 
+var openAiEndpointValue = builder.Configuration["AzureOpenAI:Endpoint"];
+var chatDeploymentName = builder.Configuration["AzureOpenAI:Deployment"];
+var searchEndpointValue = builder.Configuration["AzureSearch:Endpoint"];
+var searchIndexName = builder.Configuration["AzureSearch:Index"];
+
+if (string.IsNullOrWhiteSpace(openAiEndpointValue))
+    throw new InvalidOperationException("Missing configuration: AzureOpenAI:Endpoint");
+
+if (string.IsNullOrWhiteSpace(chatDeploymentName))
+    throw new InvalidOperationException("Missing configuration: AzureOpenAI:Deployment");
+
+if (string.IsNullOrWhiteSpace(searchEndpointValue))
+    throw new InvalidOperationException("Missing configuration: AzureSearch:Endpoint");
+
+if (string.IsNullOrWhiteSpace(searchIndexName))
+    throw new InvalidOperationException("Missing configuration: AzureSearch:Index");
+
 // Azure OpenAI
-var openAiEndpoint = new Uri("https://agent13-openai-dev.openai.azure.com/");
+var openAiEndpoint = new Uri(openAiEndpointValue);
 var openAiClient = new AzureOpenAIClient(openAiEndpoint, credential);
 
 // Azure Search
-var searchEndpoint = new Uri("https://agent13-search-dev.search.windows.net");
-var searchIndexName = "agent13-index";
+var searchEndpoint = new Uri(searchEndpointValue);
 
 var searchClient = new SearchClient(
     searchEndpoint,
@@ -54,7 +70,7 @@ app.MapPost("/ask", async (AskRequest request) =>
 
     var question = request.Question;
 
-    var chatClient = openAiClient.GetChatClient("gpt-4.1-mini");
+    var chatClient = openAiClient.GetChatClient(chatDeploymentName);
 
     var searchResults =
         await searchClient.SearchAsync<SearchDocument>(question);
@@ -68,11 +84,11 @@ app.MapPost("/ask", async (AskRequest request) =>
     }
 
     if (string.IsNullOrWhiteSpace(context))
-        return Results.Ok("No relevant documents found.");
+        return Results.Ok(new { answer = "No relevant documents found." });
 
     var response = await chatClient.CompleteChatAsync(context + "\n\nQuestion: " + question);
 
-    return Results.Ok(response.Value.Content[0].Text);
+    return Results.Ok(new { answer = response.Value.Content[0].Text });
 })
 .RequireAuthorization();
 

@@ -19,7 +19,7 @@ from azure.search.documents.indexes.models import (
     VectorSearch,
     VectorSearchAlgorithmConfiguration,
 )
-from azure.identity import DefaultAzureCredential
+from azure.core.credentials import AzureKeyCredential
 
 # ---------------------------
 # Load environment variables
@@ -116,7 +116,7 @@ client = AzureOpenAI(
 search_client = SearchClient(
     endpoint=AZURE_SEARCH_ENDPOINT,
     index_name=AZURE_SEARCH_INDEX,
-    credential=DefaultAzureCredential(),
+    credential=AzureKeyCredential(AZURE_SEARCH_KEY),
 )
 
 
@@ -268,7 +268,8 @@ def get_document_count(client: SearchClient):
 # ---------------------------
 def ingest_documents():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    documents_folder = os.path.join(base_dir, "documents")
+    repo_root = os.path.dirname(base_dir)
+    documents_folder = os.path.join(repo_root, "documents")
 
     logger.info("📂 Documents folder: %s", documents_folder)
 
