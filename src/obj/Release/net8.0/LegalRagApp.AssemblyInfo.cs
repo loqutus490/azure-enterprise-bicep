@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LegalRagApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1854b2485507f96a13a5f8dd69987111300ffc8f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f26236e062e5c4868d2063854dd122ee87229219")]
 [assembly: System.Reflection.AssemblyProductAttribute("LegalRagApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LegalRagApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
