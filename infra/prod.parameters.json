@@ -1,0 +1,18 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "westus3"
+    },
+    "openAiName": {
+      "value": "agent13-openai-prod"
+    },
+    "searchName": {
+      "value": "agent13-search-prod"
+    },
+    "storageName": {
+      "value": "agent13storageprod01"
+    }
+  }
+}
