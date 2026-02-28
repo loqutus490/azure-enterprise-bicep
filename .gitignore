@@ -1,26 +1,18 @@
-# Mac junk
-.DS_Store
+# Bicep/Azure standard exclusions
+
+# Local environment files
 .env
-local.env
-documents/
-
-# Bicep compiled output
-*.json
-
-# Python
-__pycache__/
-*.pyc
-
-# Build artifacts
-publish/
-publish.zip
-
-# .NET build artifacts
+*.local
+# Build outputs
 bin/
 obj/
-**/bin/
-**/obj/
-*.dll
-*.pdb
-*.runtimeconfig.json
-*.deps.json
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+# Dependencies
+*.tfstate
+*.tfstate.*
+# Sensitive data
+secrets.json
