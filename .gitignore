@@ -1,4 +1,6 @@
 #!/bin/bash
+**/obj/
+**/bin/
 
 GITIGNORE=".gitignore"
 
