@@ -157,6 +157,20 @@ python3 scripts/ingest.py
 ./scripts/tenant-deploy.sh -t <tenant-id> -s <subscription-id> -e prod
 ```
 
+If you deploy manually with `az webapp deploy`, package the publish output as a ZIP first.
+Passing a folder path defaults to `--type static`, which fails for ASP.NET app content.
+
+```bash
+dotnet publish ./src/LegalRagApp.csproj -c Release -o ./publish
+(cd publish && zip -r ../publish.zip .)
+
+az webapp deploy \
+  --resource-group <rg-name> \
+  --name <webapp-name> \
+  --src-path ./publish.zip \
+  --type zip
+```
+
 ### 6. Enable Teams Bot
 
 ```bash
