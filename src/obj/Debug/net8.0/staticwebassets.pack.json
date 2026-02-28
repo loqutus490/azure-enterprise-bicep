@@ -1,0 +1,33 @@
+{
+  "Files": [
+    {
+      "Id": "/Users/roy/Desktop/legal-rag-platform/src/wwwroot/css/style.css",
+      "PackagePath": "staticwebassets/css/style.css"
+    },
+    {
+      "Id": "/Users/roy/Desktop/legal-rag-platform/src/wwwroot/index.html",
+      "PackagePath": "staticwebassets/index.html"
+    },
+    {
+      "Id": "/Users/roy/Desktop/legal-rag-platform/src/wwwroot/js/chat.js",
+      "PackagePath": "staticwebassets/js/chat.js"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.LegalRagApp.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.LegalRagApp.props",
+      "PackagePath": "build\\LegalRagApp.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.LegalRagApp.props",
+      "PackagePath": "buildMultiTargeting\\LegalRagApp.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.LegalRagApp.props",
+      "PackagePath": "buildTransitive\\LegalRagApp.props"
+    }
+  ],
+  "ElementsToRemove": []
+}
