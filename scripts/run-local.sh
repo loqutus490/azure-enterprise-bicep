@@ -19,5 +19,27 @@ set -a
 source "$ENV_FILE"
 set +a
 
+required_vars=(
+  "AzureSearch__Endpoint"
+  "AzureSearch__Index"
+  "AzureOpenAI__Endpoint"
+  "AzureOpenAI__Deployment"
+)
+
+for var_name in "${required_vars[@]}"; do
+  value="${!var_name:-}"
+  if [ -z "$value" ]; then
+    echo "❌ Missing required config: $var_name"
+    echo "   Update $ENV_FILE with a real value."
+    exit 1
+  fi
+
+  if [[ "$value" == *"<"* || "$value" == *">"* ]]; then
+    echo "❌ Placeholder value detected for: $var_name"
+    echo "   Replace template values in $ENV_FILE before running locally."
+    exit 1
+  fi
+done
+
 echo "🚀 Starting LegalRagApp locally..."
-dotnet run --project ./src/LegalRagApp.csproj
+dotnet run --project ./src/LegalRagApp.csproj --no-restore

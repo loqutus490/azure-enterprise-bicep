@@ -191,7 +191,7 @@ def validate_openai_credentials(client: AzureOpenAI, model: str = "text-embeddin
     Exits the process with guidance if validation fails.
     """
     try:
-        create_embeddings(client, model, "ping")
+        client.embeddings.create(model=model, input="ping")
         logger.info("✅ Azure OpenAI credentials validated.")
     except Exception as e:
         logger.error("🔒 Azure OpenAI authentication failed. Guidance:")

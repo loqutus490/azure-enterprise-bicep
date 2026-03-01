@@ -6,6 +6,8 @@ param enableAuth bool = false
 param allowedClientApplications array = []
 param vnetSubnetId string = ''
 param enableVnetIntegration bool = false
+param searchEndpoint string = ''
+param searchIndex string = ''
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   name: 'plan-${name}'
@@ -45,6 +47,14 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'ApplicationInsightsAgent_EXTENSION_VERSION'
           value: '~3'
+        }
+        {
+          name: 'AzureSearch__Endpoint'
+          value: searchEndpoint
+        }
+        {
+          name: 'AzureSearch__Index'
+          value: searchIndex
         }
       ]
     }

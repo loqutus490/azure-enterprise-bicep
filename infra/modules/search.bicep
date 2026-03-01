@@ -60,6 +60,6 @@ resource searchDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups
 }
 
 output searchName string = search.name
+output searchEndpoint string = 'https://${search.name}.search.windows.net'
 output searchId string = search.id
 output searchPrincipalId string = search.identity.principalId
-
