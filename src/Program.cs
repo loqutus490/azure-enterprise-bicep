@@ -3,6 +3,7 @@ using Azure.Identity;
 using Azure.AI.OpenAI;
 using Azure.Search.Documents;
 using Azure.Search.Documents.Models;
+using System.Diagnostics;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Identity.Web;
@@ -50,6 +51,7 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+var logger = app.Logger;
 
 // 🔐 Enable auth middleware
 app.UseAuthentication();
@@ -60,6 +62,7 @@ var credential = new DefaultAzureCredential();
 
 var openAiEndpointValue = builder.Configuration["AzureOpenAI:Endpoint"];
 var chatDeploymentName = builder.Configuration["AzureOpenAI:Deployment"];
+var embeddingDeploymentName = builder.Configuration["AzureOpenAI:EmbeddingDeployment"];
 var searchEndpointValue = builder.Configuration["AzureSearch:Endpoint"];
 var searchIndexName = builder.Configuration["AzureSearch:Index"];
 
@@ -68,6 +71,9 @@ if (string.IsNullOrWhiteSpace(openAiEndpointValue))
 
 if (string.IsNullOrWhiteSpace(chatDeploymentName))
     throw new InvalidOperationException("Missing configuration: AzureOpenAI:Deployment");
+
+if (string.IsNullOrWhiteSpace(embeddingDeploymentName))
+    throw new InvalidOperationException("Missing configuration: AzureOpenAI:EmbeddingDeployment");
 
 if (string.IsNullOrWhiteSpace(searchEndpointValue))
     throw new InvalidOperationException("Missing configuration: AzureSearch:Endpoint");
@@ -98,28 +104,90 @@ app.MapGet("/version", () => "SECURED_BUILD_V1")
 // 🔐 Protected RAG endpoint
 app.MapPost("/ask", async (AskRequest request) =>
 {
+    var stopwatch = Stopwatch.StartNew();
+
     if (string.IsNullOrWhiteSpace(request.Question))
         return Results.BadRequest("Question is required.");
 
     var question = request.Question;
 
     var chatClient = openAiClient.GetChatClient(chatDeploymentName);
+    var embeddingClient = openAiClient.GetEmbeddingClient(embeddingDeploymentName);
+
+    var embeddingResponse = await embeddingClient.GenerateEmbeddingAsync(question);
+    var questionVector = embeddingResponse.Value.ToFloats().ToArray();
+
+    var searchOptions = new SearchOptions
+    {
+        Size = 5,
+        VectorSearch = new VectorSearchOptions
+        {
+            Queries =
+            {
+                new VectorizedQuery(questionVector)
+                {
+                    KNearestNeighborsCount = 5,
+                    Fields = { "contentVector" }
+                }
+            }
+        }
+    };
+    searchOptions.Select.Add("content");
 
     var searchResults =
-        await searchClient.SearchAsync<SearchDocument>(question);
+        await searchClient.SearchAsync<SearchDocument>(question, searchOptions);
 
     var context = "";
+    var retrievedFilenames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var retrievedChunkCount = 0;
 
     await foreach (var result in searchResults.Value.GetResultsAsync())
     {
+        retrievedChunkCount++;
+
+        if (result.Document.ContainsKey("filename"))
+        {
+            var filename = result.Document["filename"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(filename))
+                retrievedFilenames.Add(filename);
+        }
+
         if (result.Document.ContainsKey("content"))
             context += result.Document["content"]?.ToString() + "\n";
     }
 
     if (string.IsNullOrWhiteSpace(context))
-        return Results.Ok(new { answer = "No relevant documents found." });
+    {
+        logger.LogInformation("AskRequest completed with no retrieval results. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} DurationMs={DurationMs}",
+            question.Length,
+            retrievedChunkCount,
+            stopwatch.ElapsedMilliseconds);
 
-    var response = await chatClient.CompleteChatAsync(context + "\n\nQuestion: " + question);
+        return Results.Ok(new { answer = "No relevant documents found." });
+    }
+
+    var controlledPrompt = $"""
+You are a legal AI assistant for internal law firm use.
+Rules:
+- Answer using only the provided context.
+- If context is insufficient, reply exactly: "Insufficient information in approved documents."
+- Do not provide legal advice beyond the source context.
+- Be concise, factual, and cite filenames when available.
+
+Context:
+{context}
+
+Question:
+{question}
+""";
+
+    var response = await chatClient.CompleteChatAsync(controlledPrompt);
+
+    logger.LogInformation("AskRequest completed. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} RetrievedFiles={RetrievedFiles} DurationMs={DurationMs}",
+        question.Length,
+        retrievedChunkCount,
+        string.Join(',', retrievedFilenames),
+        stopwatch.ElapsedMilliseconds);
 
     return Results.Ok(new { answer = response.Value.Content[0].Text });
 })

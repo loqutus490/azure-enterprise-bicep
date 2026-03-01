@@ -14,6 +14,9 @@ param entraClientId string = ''
 @description('Allowed client application IDs for app-to-app API access. Leave empty to allow any app that has the required API role.')
 param allowedClientApplications array = []
 
+@description('Azure AI Search index name used by the API.')
+param searchIndexName string = 'legal-index'
+
 @description('Entra ID app registration client ID for the Bot Service. Leave empty to skip bot deployment.')
 param botEntraAppId string = ''
 
@@ -64,6 +67,9 @@ module openai './modules/openai.bicep' = {
   params: {
     name: '${namePrefix}-openai-${environment}'
     location: location
+    enablePrivateEndpoint: enableNetworking
+    privateEndpointSubnetId: enableNetworking ? (networking.?outputs.?peSubnetId ?? '') : ''
+    privateDnsZoneId: enableNetworking ? (networking.?outputs.?openaiDnsZoneId ?? '') : ''
   }
 }
 
@@ -103,6 +109,8 @@ module app './modules/appservice.bicep' = {
     enableAuth: entraClientId != ''
     vnetSubnetId: enableNetworking ? (networking.?outputs.?appSubnetId ?? '') : ''
     enableVnetIntegration: enableNetworking
+    searchEndpoint: search.outputs.searchEndpoint
+    searchIndex: searchIndexName
   }
 }
 
