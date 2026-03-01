@@ -15,11 +15,38 @@ builder.Services
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
 
 var requiredApiRole = builder.Configuration["Authorization:RequiredRole"] ?? "Api.Access";
+var allowedClientAppIds = builder.Configuration.GetSection("Authorization:AllowedClientAppIds").Get<string[]>() ?? Array.Empty<string>();
+var allowedClientAppIdSet = new HashSet<string>(
+    allowedClientAppIds.Where(clientAppId => !string.IsNullOrWhiteSpace(clientAppId)),
+    StringComparer.OrdinalIgnoreCase);
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("ApiAccessPolicy", policy =>
-        policy.RequireAuthenticatedUser().RequireRole(requiredApiRole));
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole(requiredApiRole);
+        policy.RequireAssertion(context =>
+        {
+            var user = context.User;
+            var appId = user.FindFirst("azp")?.Value ?? user.FindFirst("appid")?.Value;
+
+            if (string.IsNullOrWhiteSpace(appId))
+                return false;
+
+            if (user.HasClaim(claim => claim.Type == "scp"))
+                return false;
+
+            var idType = user.FindFirst("idtyp")?.Value;
+            if (!string.IsNullOrWhiteSpace(idType) && !string.Equals(idType, "app", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (allowedClientAppIdSet.Count == 0)
+                return true;
+
+            return allowedClientAppIdSet.Contains(appId);
+        });
+    });
 });
 
 var app = builder.Build();

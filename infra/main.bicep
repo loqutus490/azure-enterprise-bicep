@@ -11,6 +11,9 @@ param namePrefix string = 'agent13'
 @description('Entra ID app registration client ID for authentication. Leave empty to disable auth.')
 param entraClientId string = ''
 
+@description('Allowed client application IDs for app-to-app API access. Leave empty to allow any app that has the required API role.')
+param allowedClientApplications array = []
+
 @description('Entra ID app registration client ID for the Bot Service. Leave empty to skip bot deployment.')
 param botEntraAppId string = ''
 
@@ -48,8 +51,8 @@ module search './modules/search.bicep' = {
     name: '${namePrefix}-search-${environment}'
     location: location
     enablePrivateEndpoint: enableNetworking
-    privateEndpointSubnetId: enableNetworking ? networking.outputs.peSubnetId : ''
-    privateDnsZoneId: enableNetworking ? networking.outputs.searchDnsZoneId : ''
+    privateEndpointSubnetId: enableNetworking ? (networking.?outputs.?peSubnetId ?? '') : ''
+    privateDnsZoneId: enableNetworking ? (networking.?outputs.?searchDnsZoneId ?? '') : ''
   }
 }
 
@@ -96,8 +99,9 @@ module app './modules/appservice.bicep' = {
     location: location
     appInsightsKey: monitoring.outputs.instrumentationKey
     entraClientId: entraClientId
+    allowedClientApplications: allowedClientApplications
     enableAuth: entraClientId != ''
-    vnetSubnetId: enableNetworking ? networking.outputs.appSubnetId : ''
+    vnetSubnetId: enableNetworking ? (networking.?outputs.?appSubnetId ?? '') : ''
     enableVnetIntegration: enableNetworking
   }
 }

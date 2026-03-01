@@ -3,6 +3,7 @@ param location string
 param appInsightsKey string
 param entraClientId string = ''
 param enableAuth bool = false
+param allowedClientApplications array = []
 param vnetSubnetId string = ''
 param enableVnetIntegration bool = false
 
@@ -57,7 +58,7 @@ resource authSettings 'Microsoft.Web/sites/config@2023-01-01' = if (enableAuth) 
   properties: {
     globalValidation: {
       requireAuthentication: true
-      unauthenticatedClientAction: 'RedirectToLoginPage'
+      unauthenticatedClientAction: 'Return401'
     }
     identityProviders: {
       azureActiveDirectory: {
@@ -70,12 +71,18 @@ resource authSettings 'Microsoft.Web/sites/config@2023-01-01' = if (enableAuth) 
           allowedAudiences: [
             'api://${entraClientId}'
           ]
+          jwtClaimChecks: {
+            allowedClientApplications: allowedClientApplications
+          }
         }
       }
     }
+    httpSettings: {
+      requireHttps: true
+    }
     login: {
       tokenStore: {
-        enabled: true
+        enabled: false
       }
     }
   }
