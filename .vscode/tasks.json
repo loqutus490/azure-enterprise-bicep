@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build-api",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "./src/LegalRagApp.csproj"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$msCompile"
+      ]
+    },
+    {
+      "label": "run-api",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "./src/LegalRagApp.csproj",
+        "--no-restore"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "run-local-script",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "./scripts/run-local.sh",
+        "./local.env"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug LegalRagApp (HTTP 5176)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-api",
+      "program": "${workspaceFolder}/src/bin/Debug/net8.0/LegalRagApp.dll",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/local.env",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5176"
+      },
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "justMyCode": true
+    }
+  ]
+}
