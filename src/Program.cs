@@ -14,7 +14,13 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
 
-builder.Services.AddAuthorization();
+var requiredApiRole = builder.Configuration["Authorization:RequiredRole"] ?? "Api.Access";
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("ApiAccessPolicy", policy =>
+        policy.RequireAuthenticatedUser().RequireRole(requiredApiRole));
+});
 
 var app = builder.Build();
 
@@ -60,7 +66,7 @@ app.MapGet("/ping", () => "pong");
 
 // 🔐 Protected version endpoint
 app.MapGet("/version", () => "SECURED_BUILD_V1")
-   .RequireAuthorization();
+    .RequireAuthorization("ApiAccessPolicy");
 
 // 🔐 Protected RAG endpoint
 app.MapPost("/ask", async (AskRequest request) =>
@@ -90,7 +96,7 @@ app.MapPost("/ask", async (AskRequest request) =>
 
     return Results.Ok(new { answer = response.Value.Content[0].Text });
 })
-.RequireAuthorization();
+.RequireAuthorization("ApiAccessPolicy");
 
 app.Run();
 
