@@ -63,8 +63,10 @@ var credential = new DefaultAzureCredential();
 var openAiEndpointValue = builder.Configuration["AzureOpenAI:Endpoint"];
 var chatDeploymentName = builder.Configuration["AzureOpenAI:Deployment"];
 var embeddingDeploymentName = builder.Configuration["AzureOpenAI:EmbeddingDeployment"];
+var openAiApiKey = builder.Configuration["AzureOpenAI:Key"];
 var searchEndpointValue = builder.Configuration["AzureSearch:Endpoint"];
 var searchIndexName = builder.Configuration["AzureSearch:Index"];
+var searchApiKey = builder.Configuration["AzureSearch:Key"];
 
 if (string.IsNullOrWhiteSpace(openAiEndpointValue))
     throw new InvalidOperationException("Missing configuration: AzureOpenAI:Endpoint");
@@ -83,16 +85,21 @@ if (string.IsNullOrWhiteSpace(searchIndexName))
 
 // Azure OpenAI
 var openAiEndpoint = new Uri(openAiEndpointValue);
-var openAiClient = new AzureOpenAIClient(openAiEndpoint, credential);
+AzureOpenAIClient openAiClient = string.IsNullOrWhiteSpace(openAiApiKey)
+    ? new AzureOpenAIClient(openAiEndpoint, credential)
+    : new AzureOpenAIClient(openAiEndpoint, new AzureKeyCredential(openAiApiKey));
 
 // Azure Search
 var searchEndpoint = new Uri(searchEndpointValue);
-
-var searchClient = new SearchClient(
-    searchEndpoint,
-    searchIndexName,
-    credential
-);
+SearchClient searchClient;
+if (string.IsNullOrWhiteSpace(searchApiKey))
+{
+    searchClient = new SearchClient(searchEndpoint, searchIndexName, credential);
+}
+else
+{
+    searchClient = new SearchClient(searchEndpoint, searchIndexName, new AzureKeyCredential(searchApiKey));
+}
 
 // Public health endpoint
 app.MapGet("/ping", () => "pong");

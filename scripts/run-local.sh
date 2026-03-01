@@ -24,6 +24,7 @@ required_vars=(
   "AzureSearch__Index"
   "AzureOpenAI__Endpoint"
   "AzureOpenAI__Deployment"
+  "AzureOpenAI__EmbeddingDeployment"
 )
 
 for var_name in "${required_vars[@]}"; do

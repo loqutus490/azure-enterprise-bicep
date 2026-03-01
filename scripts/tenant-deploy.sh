@@ -198,11 +198,16 @@ OPENAI_DEPLOYMENT=$(az cognitiveservices account deployment list \
   --name "$OPENAI_RESOURCE" \
   --resource-group "$RESOURCE_GROUP" \
   --query "[0].name" -o tsv 2>/dev/null || echo "gpt-4o")
+OPENAI_EMBEDDING_DEPLOYMENT=$(az cognitiveservices account deployment list \
+  --name "$OPENAI_RESOURCE" \
+  --resource-group "$RESOURCE_GROUP" \
+  --query "[?contains(name,'embedding')].name | [0]" -o tsv 2>/dev/null || echo "text-embedding-3-large")
 
 echo "   Web App        : $WEBAPP_NAME"
 echo "   Search Service : $SEARCH_SERVICE"
 echo "   OpenAI Resource: $OPENAI_RESOURCE"
 echo "   OpenAI Deploy  : $OPENAI_DEPLOYMENT"
+echo "   Embed Deploy   : $OPENAI_EMBEDDING_DEPLOYMENT"
 
 # -----------------------------------------------------------------------
 # Fetch service keys
@@ -239,6 +244,7 @@ az webapp config appsettings set \
     AzureOpenAI__Endpoint="https://${OPENAI_RESOURCE}.openai.azure.com/" \
     AzureOpenAI__Key="$OPENAI_KEY" \
     AzureOpenAI__Deployment="$OPENAI_DEPLOYMENT" \
+    AzureOpenAI__EmbeddingDeployment="$OPENAI_EMBEDDING_DEPLOYMENT" \
   --output none
 
 echo "   App settings configured."

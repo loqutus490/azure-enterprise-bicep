@@ -87,3 +87,5 @@ resource embeddingModel 'Microsoft.CognitiveServices/accounts/deployments@2023-0
 }
 
 output endpoint string = openai.properties.endpoint
+output chatDeploymentName string = chatModel.name
+output embeddingDeploymentName string = embeddingModel.name
