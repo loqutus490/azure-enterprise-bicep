@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "12357458170104698695"
+      "templateHash": "9054443423865730822"
     }
   },
   "parameters": {
@@ -31,11 +31,32 @@
         "description": "Entra ID app registration client ID for authentication. Leave empty to disable auth."
       }
     },
+    "allowedClientApplications": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Allowed client application IDs for app-to-app API access. Leave empty to allow any app that has the required API role."
+      }
+    },
+    "searchIndexName": {
+      "type": "string",
+      "defaultValue": "legal-index",
+      "metadata": {
+        "description": "Azure AI Search index name used by the API."
+      }
+    },
     "botEntraAppId": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
         "description": "Entra ID app registration client ID for the Bot Service. Leave empty to skip bot deployment."
+      }
+    },
+    "budgetContactEmails": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Email addresses for budget alert notifications."
       }
     },
     "enableNetworking": {
@@ -72,7 +93,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "5979503623381476860"
+              "templateHash": "7663440609690905511"
             }
           },
           "parameters": {
@@ -308,15 +329,15 @@
             },
             "appSubnetId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('name'))), '2023-05-01').subnets[0].id]"
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', format('vnet-{0}', parameters('name')), 'snet-app')]"
             },
             "peSubnetId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('name'))), '2023-05-01').subnets[1].id]"
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', format('vnet-{0}', parameters('name')), 'snet-private-endpoints')]"
             },
             "botSubnetId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('name'))), '2023-05-01').subnets[2].id]"
+              "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', format('vnet-{0}', parameters('name')), 'snet-bot')]"
             },
             "searchDnsZoneId": {
               "type": "string",
@@ -409,8 +430,8 @@
           "enablePrivateEndpoint": {
             "value": "[parameters('enableNetworking')]"
           },
-          "privateEndpointSubnetId": "[if(parameters('enableNetworking'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'networking'), '2025-04-01').outputs.peSubnetId.value), createObject('value', ''))]",
-          "privateDnsZoneId": "[if(parameters('enableNetworking'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'networking'), '2025-04-01').outputs.searchDnsZoneId.value), createObject('value', ''))]"
+          "privateEndpointSubnetId": "[if(parameters('enableNetworking'), createObject('value', coalesce(tryGet(tryGet(tryGet(if(parameters('enableNetworking'), reference(resourceId('Microsoft.Resources/deployments', 'networking'), '2025-04-01'), null()), 'outputs'), 'peSubnetId'), 'value'), '')), createObject('value', ''))]",
+          "privateDnsZoneId": "[if(parameters('enableNetworking'), createObject('value', coalesce(tryGet(tryGet(tryGet(if(parameters('enableNetworking'), reference(resourceId('Microsoft.Resources/deployments', 'networking'), '2025-04-01'), null()), 'outputs'), 'searchDnsZoneId'), 'value'), '')), createObject('value', ''))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -419,7 +440,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "3760409089970629869"
+              "templateHash": "4354851456932075821"
             }
           },
           "parameters": {
@@ -513,6 +534,10 @@
               "type": "string",
               "value": "[parameters('name')]"
             },
+            "searchEndpoint": {
+              "type": "string",
+              "value": "[format('https://{0}.search.windows.net', parameters('name'))]"
+            },
             "searchId": {
               "type": "string",
               "value": "[resourceId('Microsoft.Search/searchServices', parameters('name'))]"
@@ -543,7 +568,12 @@
           },
           "location": {
             "value": "[parameters('location')]"
-          }
+          },
+          "enablePrivateEndpoint": {
+            "value": "[parameters('enableNetworking')]"
+          },
+          "privateEndpointSubnetId": "[if(parameters('enableNetworking'), createObject('value', coalesce(tryGet(tryGet(tryGet(if(parameters('enableNetworking'), reference(resourceId('Microsoft.Resources/deployments', 'networking'), '2025-04-01'), null()), 'outputs'), 'peSubnetId'), 'value'), '')), createObject('value', ''))]",
+          "privateDnsZoneId": "[if(parameters('enableNetworking'), createObject('value', coalesce(tryGet(tryGet(tryGet(if(parameters('enableNetworking'), reference(resourceId('Microsoft.Resources/deployments', 'networking'), '2025-04-01'), null()), 'outputs'), 'openaiDnsZoneId'), 'value'), '')), createObject('value', ''))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -552,7 +582,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "12417413271947487293"
+              "templateHash": "5589261746827644732"
             }
           },
           "parameters": {
@@ -561,6 +591,18 @@
             },
             "location": {
               "type": "string"
+            },
+            "enablePrivateEndpoint": {
+              "type": "bool",
+              "defaultValue": false
+            },
+            "privateEndpointSubnetId": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "privateDnsZoneId": {
+              "type": "string",
+              "defaultValue": ""
             }
           },
           "resources": [
@@ -574,8 +616,54 @@
                 "name": "S0"
               },
               "properties": {
-                "publicNetworkAccess": "enabled"
+                "customSubDomainName": "[parameters('name')]",
+                "publicNetworkAccess": "[if(parameters('enablePrivateEndpoint'), 'disabled', 'enabled')]"
               }
+            },
+            {
+              "condition": "[parameters('enablePrivateEndpoint')]",
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-05-01",
+              "name": "[format('pe-{0}', parameters('name'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('plsc-{0}', parameters('name'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]",
+                      "groupIds": [
+                        "account"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enablePrivateEndpoint')]",
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', format('pe-{0}', parameters('name')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "config",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneId')]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}', parameters('name')))]"
+              ]
             },
             {
               "type": "Microsoft.CognitiveServices/accounts/deployments",
@@ -612,6 +700,7 @@
                 }
               },
               "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('name'), 'gpt-4o')]",
                 "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]"
               ]
             }
@@ -620,10 +709,21 @@
             "endpoint": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2023-05-01').endpoint]"
+            },
+            "chatDeploymentName": {
+              "type": "string",
+              "value": "gpt-4o"
+            },
+            "embeddingDeploymentName": {
+              "type": "string",
+              "value": "text-embedding-3-large"
             }
           }
         }
-      }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'networking')]"
+      ]
     },
     {
       "type": "Microsoft.Resources/deployments",
@@ -788,12 +888,21 @@
           "entraClientId": {
             "value": "[parameters('entraClientId')]"
           },
+          "allowedClientApplications": {
+            "value": "[parameters('allowedClientApplications')]"
+          },
           "enableAuth": {
             "value": "[not(equals(parameters('entraClientId'), ''))]"
           },
-          "vnetSubnetId": "[if(parameters('enableNetworking'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'networking'), '2025-04-01').outputs.appSubnetId.value), createObject('value', ''))]",
+          "vnetSubnetId": "[if(parameters('enableNetworking'), createObject('value', coalesce(tryGet(tryGet(tryGet(if(parameters('enableNetworking'), reference(resourceId('Microsoft.Resources/deployments', 'networking'), '2025-04-01'), null()), 'outputs'), 'appSubnetId'), 'value'), '')), createObject('value', ''))]",
           "enableVnetIntegration": {
             "value": "[parameters('enableNetworking')]"
+          },
+          "searchEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'search'), '2025-04-01').outputs.searchEndpoint.value]"
+          },
+          "searchIndex": {
+            "value": "[parameters('searchIndexName')]"
           }
         },
         "template": {
@@ -803,7 +912,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "2540370212246899084"
+              "templateHash": "6686897034821125728"
             }
           },
           "parameters": {
@@ -824,6 +933,10 @@
               "type": "bool",
               "defaultValue": false
             },
+            "allowedClientApplications": {
+              "type": "array",
+              "defaultValue": []
+            },
             "vnetSubnetId": {
               "type": "string",
               "defaultValue": ""
@@ -831,6 +944,14 @@
             "enableVnetIntegration": {
               "type": "bool",
               "defaultValue": false
+            },
+            "searchEndpoint": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "searchIndex": {
+              "type": "string",
+              "defaultValue": ""
             }
           },
           "resources": [
@@ -875,6 +996,14 @@
                     {
                       "name": "ApplicationInsightsAgent_EXTENSION_VERSION",
                       "value": "~3"
+                    },
+                    {
+                      "name": "AzureSearch__Endpoint",
+                      "value": "[parameters('searchEndpoint')]"
+                    },
+                    {
+                      "name": "AzureSearch__Index",
+                      "value": "[parameters('searchIndex')]"
                     }
                   ]
                 }
@@ -891,7 +1020,7 @@
               "properties": {
                 "globalValidation": {
                   "requireAuthentication": true,
-                  "unauthenticatedClientAction": "RedirectToLoginPage"
+                  "unauthenticatedClientAction": "Return401"
                 },
                 "identityProviders": {
                   "azureActiveDirectory": {
@@ -903,13 +1032,19 @@
                     "validation": {
                       "allowedAudiences": [
                         "[format('api://{0}', parameters('entraClientId'))]"
-                      ]
+                      ],
+                      "jwtClaimChecks": {
+                        "allowedClientApplications": "[parameters('allowedClientApplications')]"
+                      }
                     }
                   }
                 },
+                "httpSettings": {
+                  "requireHttps": true
+                },
                 "login": {
                   "tokenStore": {
-                    "enabled": true
+                    "enabled": false
                   }
                 }
               },
@@ -936,7 +1071,8 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
-        "[resourceId('Microsoft.Resources/deployments', 'networking')]"
+        "[resourceId('Microsoft.Resources/deployments', 'networking')]",
+        "[resourceId('Microsoft.Resources/deployments', 'search')]"
       ]
     },
     {
@@ -1072,7 +1208,10 @@
           "environment": {
             "value": "[parameters('environment')]"
           },
-          "amount": "[if(equals(parameters('environment'), 'prod'), createObject('value', 1000), createObject('value', 200))]"
+          "amount": "[if(equals(parameters('environment'), 'prod'), createObject('value', 1000), createObject('value', 200))]",
+          "contactEmails": {
+            "value": "[parameters('budgetContactEmails')]"
+          }
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -1081,7 +1220,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "7898773751918438488"
+              "templateHash": "115248304463382959"
             }
           },
           "parameters": {
@@ -1090,6 +1229,13 @@
             },
             "amount": {
               "type": "int"
+            },
+            "contactEmails": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Email addresses to receive budget alert notifications."
+              }
             }
           },
           "resources": [
@@ -1109,7 +1255,7 @@
                     "enabled": true,
                     "operator": "GreaterThan",
                     "threshold": 80,
-                    "contactEmails": [],
+                    "contactEmails": "[parameters('contactEmails')]",
                     "thresholdType": "Actual"
                   }
                 }

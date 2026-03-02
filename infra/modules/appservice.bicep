@@ -8,34 +8,44 @@ param vnetSubnetId string = ''
 param enableVnetIntegration bool = false
 param searchEndpoint string = ''
 param searchIndex string = ''
+@description('App Service plan SKU name (for example: F1, B1, S1).')
+param appServicePlanSkuName string = 'B1'
+@description('App Service plan SKU tier (for example: Free, Basic, Standard).')
+param appServicePlanSkuTier string = 'Basic'
+@description('Use an existing App Service Plan resource ID instead of creating one.')
+param existingAppServicePlanResourceId string = ''
+@description('Location for the App Service app.')
+param appLocation string = location
 
-resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
+resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = if (empty(existingAppServicePlanResourceId)) {
   name: 'plan-${name}'
   location: location
   kind: 'linux'
   sku: {
-    name: 'B1'
-    tier: 'Basic'
+    name: appServicePlanSkuName
+    tier: appServicePlanSkuTier
   }
   properties: {
     reserved: true
   }
 }
 
+var serverFarmId = empty(existingAppServicePlanResourceId) ? appServicePlan.id : existingAppServicePlanResourceId
+
 resource appService 'Microsoft.Web/sites@2023-01-01' = {
   name: name
-  location: location
+  location: appLocation
   kind: 'app,linux'
   identity: {
     type: 'SystemAssigned'
   }
   properties: {
-    serverFarmId: appServicePlan.id
+    serverFarmId: serverFarmId
     virtualNetworkSubnetId: enableVnetIntegration ? vnetSubnetId : null
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|8.0'
-      alwaysOn: true
+      alwaysOn: toLower(appServicePlanSkuTier) != 'free'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true

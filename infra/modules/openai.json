@@ -1,0 +1,145 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.40.2.10011",
+      "templateHash": "5589261746827644732"
+    }
+  },
+  "parameters": {
+    "name": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "enablePrivateEndpoint": {
+      "type": "bool",
+      "defaultValue": false
+    },
+    "privateEndpointSubnetId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "privateDnsZoneId": {
+      "type": "string",
+      "defaultValue": ""
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('name')]",
+      "location": "[parameters('location')]",
+      "kind": "OpenAI",
+      "sku": {
+        "name": "S0"
+      },
+      "properties": {
+        "customSubDomainName": "[parameters('name')]",
+        "publicNetworkAccess": "[if(parameters('enablePrivateEndpoint'), 'disabled', 'enabled')]"
+      }
+    },
+    {
+      "condition": "[parameters('enablePrivateEndpoint')]",
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2023-05-01",
+      "name": "[format('pe-{0}', parameters('name'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "subnet": {
+          "id": "[parameters('privateEndpointSubnetId')]"
+        },
+        "privateLinkServiceConnections": [
+          {
+            "name": "[format('plsc-{0}', parameters('name'))]",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]",
+              "groupIds": [
+                "account"
+              ]
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('enablePrivateEndpoint')]",
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', format('pe-{0}', parameters('name')), 'default')]",
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "config",
+            "properties": {
+              "privateDnsZoneId": "[parameters('privateDnsZoneId')]"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}', parameters('name')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', parameters('name'), 'gpt-4o')]",
+      "sku": {
+        "name": "Standard",
+        "capacity": 1
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-4o",
+          "version": "2024-05-13"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', parameters('name'), 'text-embedding-3-large')]",
+      "sku": {
+        "name": "Standard",
+        "capacity": 1
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "text-embedding-3-large",
+          "version": "1"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('name'), 'gpt-4o')]",
+        "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "endpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2023-05-01').endpoint]"
+    },
+    "chatDeploymentName": {
+      "type": "string",
+      "value": "gpt-4o"
+    },
+    "embeddingDeploymentName": {
+      "type": "string",
+      "value": "text-embedding-3-large"
+    }
+  }
+}

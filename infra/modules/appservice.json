@@ -1,0 +1,163 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.40.2.10011",
+      "templateHash": "6686897034821125728"
+    }
+  },
+  "parameters": {
+    "name": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "appInsightsKey": {
+      "type": "string"
+    },
+    "entraClientId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "enableAuth": {
+      "type": "bool",
+      "defaultValue": false
+    },
+    "allowedClientApplications": {
+      "type": "array",
+      "defaultValue": []
+    },
+    "vnetSubnetId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "enableVnetIntegration": {
+      "type": "bool",
+      "defaultValue": false
+    },
+    "searchEndpoint": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "searchIndex": {
+      "type": "string",
+      "defaultValue": ""
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2023-01-01",
+      "name": "[format('plan-{0}', parameters('name'))]",
+      "location": "[parameters('location')]",
+      "kind": "linux",
+      "sku": {
+        "name": "B1",
+        "tier": "Basic"
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('name')]",
+      "location": "[parameters('location')]",
+      "kind": "app,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', format('plan-{0}', parameters('name')))]",
+        "virtualNetworkSubnetId": "[if(parameters('enableVnetIntegration'), parameters('vnetSubnetId'), null())]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "linuxFxVersion": "DOTNETCORE|8.0",
+          "alwaysOn": true,
+          "ftpsState": "Disabled",
+          "minTlsVersion": "1.2",
+          "http20Enabled": true,
+          "appSettings": [
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[parameters('appInsightsKey')]"
+            },
+            {
+              "name": "ApplicationInsightsAgent_EXTENSION_VERSION",
+              "value": "~3"
+            },
+            {
+              "name": "AzureSearch__Endpoint",
+              "value": "[parameters('searchEndpoint')]"
+            },
+            {
+              "name": "AzureSearch__Index",
+              "value": "[parameters('searchIndex')]"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', format('plan-{0}', parameters('name')))]"
+      ]
+    },
+    {
+      "condition": "[parameters('enableAuth')]",
+      "type": "Microsoft.Web/sites/config",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/{1}', parameters('name'), 'authsettingsV2')]",
+      "properties": {
+        "globalValidation": {
+          "requireAuthentication": true,
+          "unauthenticatedClientAction": "Return401"
+        },
+        "identityProviders": {
+          "azureActiveDirectory": {
+            "enabled": true,
+            "registration": {
+              "clientId": "[parameters('entraClientId')]",
+              "openIdIssuer": "[format('https://sts.windows.net/{0}/v2.0', subscription().tenantId)]"
+            },
+            "validation": {
+              "allowedAudiences": [
+                "[format('api://{0}', parameters('entraClientId'))]"
+              ],
+              "jwtClaimChecks": {
+                "allowedClientApplications": "[parameters('allowedClientApplications')]"
+              }
+            }
+          }
+        },
+        "httpSettings": {
+          "requireHttps": true
+        },
+        "login": {
+          "tokenStore": {
+            "enabled": false
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('name'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "appServiceUrl": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', parameters('name')), '2023-01-01').defaultHostName)]"
+    },
+    "appServicePrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', parameters('name')), '2023-01-01', 'full').identity.principalId]"
+    },
+    "appServiceName": {
+      "type": "string",
+      "value": "[parameters('name')]"
+    }
+  }
+}

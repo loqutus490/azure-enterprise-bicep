@@ -23,6 +23,21 @@ param botEntraAppId string = ''
 @description('Email addresses for budget alert notifications.')
 param budgetContactEmails array = []
 
+@description('App Service plan SKU name (for example: F1, B1, S1).')
+param appServicePlanSkuName string = 'B1'
+
+@description('App Service plan SKU tier (for example: Free, Basic, Standard).')
+param appServicePlanSkuTier string = 'Basic'
+
+@description('Deploy default Azure OpenAI model deployments from IaC.')
+param deployOpenAiModels bool = true
+
+@description('Existing App Service Plan resource ID to reuse instead of creating a new plan.')
+param existingAppServicePlanResourceId string = ''
+
+@description('Location for the App Service app. Defaults to the deployment location.')
+param appLocation string = location
+
 @description('Enable VNet integration and private endpoints for production security.')
 param enableNetworking bool = environment == 'prod'
 
@@ -67,6 +82,7 @@ module openai './modules/openai.bicep' = {
   params: {
     name: '${namePrefix}-openai-${environment}'
     location: location
+    deployModelDeployments: deployOpenAiModels
     enablePrivateEndpoint: enableNetworking
     privateEndpointSubnetId: enableNetworking ? (networking.?outputs.?peSubnetId ?? '') : ''
     privateDnsZoneId: enableNetworking ? (networking.?outputs.?openaiDnsZoneId ?? '') : ''
@@ -111,6 +127,10 @@ module app './modules/appservice.bicep' = {
     enableVnetIntegration: enableNetworking
     searchEndpoint: search.outputs.searchEndpoint
     searchIndex: searchIndexName
+    appServicePlanSkuName: appServicePlanSkuName
+    appServicePlanSkuTier: appServicePlanSkuTier
+    existingAppServicePlanResourceId: existingAppServicePlanResourceId
+    appLocation: appLocation
   }
 }
 

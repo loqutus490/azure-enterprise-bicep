@@ -3,6 +3,8 @@ param location string
 param enablePrivateEndpoint bool = false
 param privateEndpointSubnetId string = ''
 param privateDnsZoneId string = ''
+@description('Deploy default chat and embedding model deployments.')
+param deployModelDeployments bool = true
 
 resource openai 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   name: name
@@ -53,7 +55,7 @@ resource openaiDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups
   }
 }
 
-resource chatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
+resource chatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (deployModelDeployments) {
   parent: openai
   name: 'gpt-4o'
   sku: {
@@ -69,7 +71,7 @@ resource chatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01'
   }
 }
 
-resource embeddingModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
+resource embeddingModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (deployModelDeployments) {
   parent: openai
   name: 'text-embedding-3-large'
   dependsOn: [chatModel]
@@ -87,5 +89,5 @@ resource embeddingModel 'Microsoft.CognitiveServices/accounts/deployments@2023-0
 }
 
 output endpoint string = openai.properties.endpoint
-output chatDeploymentName string = chatModel.name
-output embeddingDeploymentName string = embeddingModel.name
+output chatDeploymentName string = deployModelDeployments ? chatModel.name : 'gpt-4o'
+output embeddingDeploymentName string = deployModelDeployments ? embeddingModel.name : 'text-embedding-3-large'
