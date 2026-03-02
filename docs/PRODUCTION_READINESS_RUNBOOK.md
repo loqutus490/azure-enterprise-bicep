@@ -112,7 +112,7 @@ curl -i -X POST "https://${APP_NAME}.azurewebsites.net/ask" \
 ```
 
 Pass criteria:
-- `/ping` returns HTTP 200 with `pong`
+- `/ping` without token returns HTTP 401 in production (EasyAuth required globally)
 - `/ask` without token returns HTTP 401 in production
 
 ## 9. API Access Gate (Authorized App)
@@ -153,7 +153,53 @@ Pass criteria:
 - Both resources are healthy/provisioned
 - Production network posture matches policy (private endpoints / disabled public access as required)
 
-## 11. Observability Gate
+## 11. Managed Identity + RBAC Gate
+
+Confirm the app can use Entra identity for OpenAI/Search data-plane access:
+
+```bash
+APP_PRINCIPAL_ID="$(az webapp identity show \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$APP_NAME" \
+  --query principalId -o tsv)"
+
+OPENAI_ID="$(az cognitiveservices account show \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$OPENAI_ACCOUNT" \
+  --query id -o tsv)"
+
+SEARCH_ID="$(az search service show \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$SEARCH_SERVICE" \
+  --query id -o tsv)"
+
+az role assignment list --assignee-object-id "$APP_PRINCIPAL_ID" --scope "$OPENAI_ID" \
+  --query "[].roleDefinitionName" -o tsv
+
+az role assignment list --assignee-object-id "$APP_PRINCIPAL_ID" --scope "$SEARCH_ID" \
+  --query "[].roleDefinitionName" -o tsv
+```
+
+Pass criteria:
+- Includes `Cognitive Services OpenAI User` on the OpenAI scope
+- Includes `Search Index Data Reader` on the Search scope
+
+## 12. Keyless App Settings Gate
+
+Confirm key-based secrets are not present in App Service settings:
+
+```bash
+az webapp config appsettings list \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$APP_NAME" \
+  --query "[?name=='AzureOpenAI__Key' || name=='AzureSearch__Key'].name" \
+  -o tsv
+```
+
+Pass criteria:
+- Output is empty
+
+## 13. Observability Gate
 
 Confirm App Insights wiring exists:
 
@@ -169,7 +215,7 @@ Pass criteria:
 - App Insights setting present
 - Query traffic and `AskRequest completed` logs visible during test traffic
 
-## 12. Rollout Decision
+## 14. Rollout Decision
 
 Promote to production only if all gates pass.
 
