@@ -203,3 +203,12 @@ az deployment group create \
 | `botEntraAppId` | Bot app client ID (enables Teams bot) | `''` (disabled) |
 | `enableNetworking` | VNet + private endpoints | `true` in prod |
 
+## High-Impact Defaults Implemented First
+
+- **Authorization allowlist fail-safe**: outside Development, API startup now requires at least one
+  `Authorization:AllowedClientAppIds` value unless you explicitly set
+  `Authorization:AllowAnyClientApp=true` for controlled migrations.
+- **RAG context limits**: the API now caps injected retrieval context with
+  `Rag:MaxContextCharacters` (default `12000`) to reduce prompt overflow.
+- **Source visibility**: `/ask` now returns a `sources` array of retrieved filenames,
+  making downstream clients and auditors aware of which files were used.
