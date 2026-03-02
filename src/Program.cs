@@ -52,6 +52,13 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 var logger = app.Logger;
+var bypassAuthInDevelopment = builder.Environment.IsDevelopment()
+    && builder.Configuration.GetValue<bool>("Authorization:BypassAuthInDevelopment");
+
+if (bypassAuthInDevelopment)
+{
+    logger.LogWarning("Authorization bypass is enabled for Development. Do not enable this outside local debugging.");
+}
 
 // 🔐 Enable auth middleware
 app.UseAuthentication();
@@ -105,11 +112,14 @@ else
 app.MapGet("/ping", () => "pong");
 
 // 🔐 Protected version endpoint
-app.MapGet("/version", () => "SECURED_BUILD_V1")
-    .RequireAuthorization("ApiAccessPolicy");
+var versionEndpoint = app.MapGet("/version", () => "SECURED_BUILD_V1");
+if (!bypassAuthInDevelopment)
+{
+    versionEndpoint.RequireAuthorization("ApiAccessPolicy");
+}
 
 // 🔐 Protected RAG endpoint
-app.MapPost("/ask", async (AskRequest request) =>
+var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
 {
     var stopwatch = Stopwatch.StartNew();
 
@@ -197,9 +207,14 @@ Question:
         stopwatch.ElapsedMilliseconds);
 
     return Results.Ok(new { answer = response.Value.Content[0].Text });
-})
-.RequireAuthorization("ApiAccessPolicy");
+});
+
+if (!bypassAuthInDevelopment)
+{
+    askEndpoint.RequireAuthorization("ApiAccessPolicy");
+}
 
 app.Run();
 
 public record AskRequest(string Question);
+public partial class Program { }
