@@ -62,11 +62,9 @@ internal sealed class LegalRagAppFactory(string environmentName, bool bypassAuth
                 ["AzureAd:ClientId"] = "11111111-1111-1111-1111-111111111111",
                 ["AzureAd:Audience"] = "11111111-1111-1111-1111-111111111111",
                 ["AzureOpenAI:Endpoint"] = "https://example-openai.openai.azure.com/",
-                ["AzureOpenAI:Key"] = "test-key",
                 ["AzureOpenAI:Deployment"] = "chat-deployment",
                 ["AzureOpenAI:EmbeddingDeployment"] = "embedding-deployment",
                 ["AzureSearch:Endpoint"] = "https://example-search.search.windows.net",
-                ["AzureSearch:Key"] = "test-key",
                 ["AzureSearch:Index"] = "legal-index",
                 ["Authorization:RequiredRole"] = "Api.Access",
                 ["Authorization:BypassAuthInDevelopment"] = bypassAuthInDevelopment ? "true" : "false"

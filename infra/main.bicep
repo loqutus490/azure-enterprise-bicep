@@ -127,10 +127,45 @@ module app './modules/appservice.bicep' = {
     enableVnetIntegration: enableNetworking
     searchEndpoint: search.outputs.searchEndpoint
     searchIndex: searchIndexName
+    openAiEndpoint: openai.outputs.endpoint
+    openAiDeployment: openai.outputs.chatDeploymentName
+    openAiEmbeddingDeployment: openai.outputs.embeddingDeploymentName
     appServicePlanSkuName: appServicePlanSkuName
     appServicePlanSkuTier: appServicePlanSkuTier
     existingAppServicePlanResourceId: existingAppServicePlanResourceId
     appLocation: appLocation
+  }
+}
+
+resource openaiAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
+  name: '${namePrefix}-openai-${environment}'
+}
+
+resource searchService 'Microsoft.Search/searchServices@2023-11-01' existing = {
+  name: '${namePrefix}-search-${environment}'
+}
+
+var openAiUserRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+var searchIndexDataReaderRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/1407120a-92aa-4202-b7e9-c0e197c71c8f'
+var appResourceName = '${namePrefix}-app-${environment}'
+
+resource openAiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(openaiAccount.id, appResourceName, openAiUserRoleDefinitionId)
+  scope: openaiAccount
+  properties: {
+    principalId: app.outputs.appServicePrincipalId
+    roleDefinitionId: openAiUserRoleDefinitionId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource searchDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(searchService.id, appResourceName, searchIndexDataReaderRoleDefinitionId)
+  scope: searchService
+  properties: {
+    principalId: app.outputs.appServicePrincipalId
+    roleDefinitionId: searchIndexDataReaderRoleDefinitionId
+    principalType: 'ServicePrincipal'
   }
 }
 

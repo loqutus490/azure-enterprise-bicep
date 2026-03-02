@@ -8,6 +8,9 @@ param vnetSubnetId string = ''
 param enableVnetIntegration bool = false
 param searchEndpoint string = ''
 param searchIndex string = ''
+param openAiEndpoint string = ''
+param openAiDeployment string = ''
+param openAiEmbeddingDeployment string = ''
 @description('App Service plan SKU name (for example: F1, B1, S1).')
 param appServicePlanSkuName string = 'B1'
 @description('App Service plan SKU tier (for example: Free, Basic, Standard).')
@@ -65,6 +68,18 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'AzureSearch__Index'
           value: searchIndex
+        }
+        {
+          name: 'AzureOpenAI__Endpoint'
+          value: openAiEndpoint
+        }
+        {
+          name: 'AzureOpenAI__Deployment'
+          value: openAiDeployment
+        }
+        {
+          name: 'AzureOpenAI__EmbeddingDeployment'
+          value: openAiEmbeddingDeployment
         }
       ]
     }
