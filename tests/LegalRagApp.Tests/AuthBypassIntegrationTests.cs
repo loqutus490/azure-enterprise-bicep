@@ -69,6 +69,7 @@ internal sealed class LegalRagAppFactory(string environmentName, bool bypassAuth
                 ["AzureSearch:Key"] = "test-key",
                 ["AzureSearch:Index"] = "legal-index",
                 ["Authorization:RequiredRole"] = "Api.Access",
+                ["Authorization:AllowedClientAppIds:0"] = "00000000-0000-0000-0000-000000000001",
                 ["Authorization:BypassAuthInDevelopment"] = bypassAuthInDevelopment ? "true" : "false"
             };
 

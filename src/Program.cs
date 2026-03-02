@@ -20,6 +20,14 @@ var allowedClientAppIds = builder.Configuration.GetSection("Authorization:Allowe
 var allowedClientAppIdSet = new HashSet<string>(
     allowedClientAppIds.Where(clientAppId => !string.IsNullOrWhiteSpace(clientAppId)),
     StringComparer.OrdinalIgnoreCase);
+var allowAnyClientApp = builder.Configuration.GetValue<bool>("Authorization:AllowAnyClientApp");
+
+if (!builder.Environment.IsDevelopment() && allowedClientAppIdSet.Count == 0 && !allowAnyClientApp)
+{
+    throw new InvalidOperationException(
+        "Authorization:AllowedClientAppIds must include at least one client app ID outside Development. " +
+        "Set Authorization:AllowAnyClientApp=true only for controlled migration scenarios.");
+}
 
 builder.Services.AddAuthorization(options =>
 {
@@ -74,6 +82,10 @@ var openAiApiKey = builder.Configuration["AzureOpenAI:Key"];
 var searchEndpointValue = builder.Configuration["AzureSearch:Endpoint"];
 var searchIndexName = builder.Configuration["AzureSearch:Index"];
 var searchApiKey = builder.Configuration["AzureSearch:Key"];
+var maxContextCharacters = builder.Configuration.GetValue<int?>("Rag:MaxContextCharacters") ?? 12000;
+
+if (maxContextCharacters < 2000)
+    throw new InvalidOperationException("Rag:MaxContextCharacters must be at least 2000.");
 
 if (string.IsNullOrWhiteSpace(openAiEndpointValue))
     throw new InvalidOperationException("Missing configuration: AzureOpenAI:Endpoint");
@@ -119,7 +131,7 @@ if (!bypassAuthInDevelopment)
 }
 
 // 🔐 Protected RAG endpoint
-var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
+var askEndpoint = app.MapPost("/ask", async (AskRequest request, CancellationToken cancellationToken) =>
 {
     var stopwatch = Stopwatch.StartNew();
 
@@ -131,7 +143,7 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
     var chatClient = openAiClient.GetChatClient(chatDeploymentName);
     var embeddingClient = openAiClient.GetEmbeddingClient(embeddingDeploymentName);
 
-    var embeddingResponse = await embeddingClient.GenerateEmbeddingAsync(question);
+    var embeddingResponse = await embeddingClient.GenerateEmbeddingAsync(question, cancellationToken);
     var questionVector = embeddingResponse.Value.ToFloats().ToArray();
 
     var searchOptions = new SearchOptions
@@ -150,11 +162,13 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
         }
     };
     searchOptions.Select.Add("content");
+    searchOptions.Select.Add("filename");
 
     var searchResults =
-        await searchClient.SearchAsync<SearchDocument>(question, searchOptions);
+        await searchClient.SearchAsync<SearchDocument>(question, searchOptions, cancellationToken);
 
-    var context = "";
+    var contextParts = new List<string>();
+    var contextLength = 0;
     var retrievedFilenames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     var retrievedChunkCount = 0;
 
@@ -169,9 +183,28 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
                 retrievedFilenames.Add(filename);
         }
 
-        if (result.Document.ContainsKey("content"))
-            context += result.Document["content"]?.ToString() + "\n";
+        if (!result.Document.ContainsKey("content"))
+            continue;
+
+        var content = result.Document["content"]?.ToString();
+        if (string.IsNullOrWhiteSpace(content))
+            continue;
+
+        var filenameForContext = result.Document.ContainsKey("filename")
+            ? result.Document["filename"]?.ToString()
+            : null;
+        var contextChunk = string.IsNullOrWhiteSpace(filenameForContext)
+            ? content
+            : $"Source: {filenameForContext}\n{content}";
+
+        if (contextLength + contextChunk.Length > maxContextCharacters)
+            break;
+
+        contextParts.Add(contextChunk);
+        contextLength += contextChunk.Length + 1;
     }
+
+    var context = string.Join('\n', contextParts);
 
     if (string.IsNullOrWhiteSpace(context))
     {
@@ -198,7 +231,9 @@ Question:
 {question}
 """;
 
-    var response = await chatClient.CompleteChatAsync(controlledPrompt);
+    var response = await chatClient.CompleteChatAsync(controlledPrompt, cancellationToken: cancellationToken);
+
+    var sources = retrievedFilenames.OrderBy(filename => filename, StringComparer.OrdinalIgnoreCase).ToArray();
 
     logger.LogInformation("AskRequest completed. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} RetrievedFiles={RetrievedFiles} DurationMs={DurationMs}",
         question.Length,
@@ -206,7 +241,11 @@ Question:
         string.Join(',', retrievedFilenames),
         stopwatch.ElapsedMilliseconds);
 
-    return Results.Ok(new { answer = response.Value.Content[0].Text });
+    return Results.Ok(new
+    {
+        answer = response.Value.Content[0].Text,
+        sources
+    });
 });
 
 if (!bypassAuthInDevelopment)
