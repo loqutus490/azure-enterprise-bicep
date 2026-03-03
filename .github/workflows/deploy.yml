@@ -55,6 +55,40 @@ jobs:
             --template-file infra/main.bicep \
             --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam
 
+      - name: Validate Deployment Health
+        run: |
+          set -euo pipefail
+
+          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
+          WEBAPP_NAME="$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
+
+          if [[ -z "$WEBAPP_NAME" ]]; then
+            echo "No Web App found in resource group '$RESOURCE_GROUP'."
+            exit 1
+          fi
+
+          echo "Validating Web App resource: $WEBAPP_NAME"
+          az webapp show --name "$WEBAPP_NAME" --resource-group "$RESOURCE_GROUP" --query "{name:name,state:state,host:defaultHostName}" -o table
+
+          HEALTH_URL="https://${WEBAPP_NAME}.azurewebsites.net/ping"
+          echo "Probing health endpoint: $HEALTH_URL"
+
+          for attempt in {1..10}; do
+            status_code="$(curl -sS -o /tmp/health_response.txt -w "%{http_code}" "$HEALTH_URL" || true)"
+
+            if [[ "$status_code" == "200" || "$status_code" == "401" || "$status_code" == "403" ]]; then
+              echo "Health probe passed with status: $status_code"
+              exit 0
+            fi
+
+            echo "Attempt $attempt/10: unexpected status '$status_code'. Retrying in 10s..."
+            sleep 10
+          done
+
+          echo "Health probe failed after retries."
+          cat /tmp/health_response.txt || true
+          exit 1
+
   deploy-prod:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'release' }}
     runs-on: ubuntu-latest
@@ -94,3 +128,37 @@ jobs:
             --resource-group rg-legal-${{ env.ENVIRONMENT }} \
             --template-file infra/main.bicep \
             --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam
+
+      - name: Validate Deployment Health
+        run: |
+          set -euo pipefail
+
+          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
+          WEBAPP_NAME="$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
+
+          if [[ -z "$WEBAPP_NAME" ]]; then
+            echo "No Web App found in resource group '$RESOURCE_GROUP'."
+            exit 1
+          fi
+
+          echo "Validating Web App resource: $WEBAPP_NAME"
+          az webapp show --name "$WEBAPP_NAME" --resource-group "$RESOURCE_GROUP" --query "{name:name,state:state,host:defaultHostName}" -o table
+
+          HEALTH_URL="https://${WEBAPP_NAME}.azurewebsites.net/ping"
+          echo "Probing health endpoint: $HEALTH_URL"
+
+          for attempt in {1..10}; do
+            status_code="$(curl -sS -o /tmp/health_response.txt -w "%{http_code}" "$HEALTH_URL" || true)"
+
+            if [[ "$status_code" == "200" || "$status_code" == "401" || "$status_code" == "403" ]]; then
+              echo "Health probe passed with status: $status_code"
+              exit 0
+            fi
+
+            echo "Attempt $attempt/10: unexpected status '$status_code'. Retrying in 10s..."
+            sleep 10
+          done
+
+          echo "Health probe failed after retries."
+          cat /tmp/health_response.txt || true
+          exit 1
