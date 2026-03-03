@@ -2,8 +2,7 @@ import os
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 from azure.search.documents import SearchClient
-from azure.core.credentials import AzureKeyCredential
-from azure.identity import DefaultAzureCredential
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 # ---------------------------
 # Load environment variables
@@ -11,19 +10,22 @@ from azure.identity import DefaultAzureCredential
 load_dotenv()
 
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
 AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
 
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
-AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
 AZURE_SEARCH_INDEX = os.getenv("AZURE_SEARCH_INDEX")
 
-# ---------------------------
-# Create clients
-# ---------------------------
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-from openai import AzureOpenAI
+required_vars = {
+    "AZURE_OPENAI_ENDPOINT": AZURE_OPENAI_ENDPOINT,
+    "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+    "AZURE_OPENAI_CHAT_DEPLOYMENT": AZURE_OPENAI_CHAT_DEPLOYMENT,
+    "AZURE_SEARCH_ENDPOINT": AZURE_SEARCH_ENDPOINT,
+    "AZURE_SEARCH_INDEX": AZURE_SEARCH_INDEX,
+}
+missing = [name for name, val in required_vars.items() if not val]
+if missing:
+    raise SystemExit(f"Missing required environment variables: {', '.join(missing)}")
 
 credential = DefaultAzureCredential()
 
@@ -41,7 +43,7 @@ openai_client = AzureOpenAI(
 search_client = SearchClient(
     endpoint=AZURE_SEARCH_ENDPOINT,
     index_name=AZURE_SEARCH_INDEX,
-    credential=AzureKeyCredential(AZURE_SEARCH_KEY),
+    credential=credential,
 )
 
 # ---------------------------
@@ -127,4 +129,3 @@ if __name__ == "__main__":
             break
         answer = ask_question(question)
         print("\nAnswer:\n", answer)
-

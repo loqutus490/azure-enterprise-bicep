@@ -101,22 +101,6 @@ az webapp create \
   > /dev/null
 
 # ==========================
-# FETCH KEYS
-# ==========================
-
-echo "🔑 Fetching Azure Search Key..."
-SEARCH_KEY=$(az search admin-key show \
-  --service-name $SEARCH_SERVICE \
-  --resource-group $RESOURCE_GROUP \
-  --query primaryKey -o tsv)
-
-echo "🔑 Fetching Azure OpenAI Key..."
-OPENAI_KEY=$(az cognitiveservices account keys list \
-  --name $OPENAI_RESOURCE \
-  --resource-group $RESOURCE_GROUP \
-  --query key1 -o tsv)
-
-# ==========================
 # CONFIGURE APP SETTINGS
 # ==========================
 
@@ -127,10 +111,8 @@ az webapp config appsettings set \
   --resource-group $RESOURCE_GROUP \
   --settings \
   AzureSearch__Endpoint="https://${SEARCH_SERVICE}.search.windows.net" \
-  AzureSearch__Key="$SEARCH_KEY" \
   AzureSearch__Index="legal-index" \
   AzureOpenAI__Endpoint="https://${OPENAI_RESOURCE}.openai.azure.com/" \
-  AzureOpenAI__Key="$OPENAI_KEY" \
   AzureOpenAI__Deployment="$OPENAI_DEPLOYMENT" \
   > /dev/null
 
