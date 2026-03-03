@@ -1,0 +1,8 @@
+{
+  "contract1.txt": {
+    "matterId": "MATTER-001",
+    "practiceArea": "Corporate",
+    "client": "Contoso",
+    "confidentialityLevel": "Internal"
+  }
+}

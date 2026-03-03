@@ -159,10 +159,14 @@ For `.txt` files outside of SharePoint:
 ```bash
 cp .env.shared.example .env.shared
 # Edit .env.shared with your endpoints/deployments
+# Copy documents/metadata.example.json to documents/metadata.json and
+# set matterId/practiceArea/client/confidentialityLevel per file
 
 pip install -r requirements.txt
 bash -lc 'source ./scripts/adapters/python-env.sh ./.env.shared && python3 scripts/ingest.py'
 ```
+
+`scripts/ingest.py` now requires `documents/metadata.json` entries with `matterId` for each ingested file.
 
 ### 4b. Query + Embedding Checks (Python Utilities)
 
@@ -193,6 +197,20 @@ az webapp deploy \
   --name <webapp-name> \
   --src-path ./publish.zip \
   --type zip
+```
+
+### 5b. `/ask` request contract
+
+`matterId` is required on every request to enforce matter-level retrieval filtering.
+
+```json
+{
+  "question": "Summarize indemnification obligations.",
+  "matterId": "MATTER-001",
+  "practiceArea": "Corporate",
+  "client": "Contoso",
+  "confidentialityLevel": "Internal"
+}
 ```
 
 ### 6. Enable Teams Bot

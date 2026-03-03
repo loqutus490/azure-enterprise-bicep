@@ -6,6 +6,7 @@ import { apiBaseUrl, loginRequest } from "./authConfig";
 export default function App({ msalInstance }) {
   const [account, setAccount] = useState(msalInstance.getActiveAccount());
   const [question, setQuestion] = useState("");
+  const [matterId, setMatterId] = useState("");
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,7 @@ export default function App({ msalInstance }) {
     await msalInstance.logoutPopup({ account });
     setAccount(null);
     setQuestion("");
+    setMatterId("");
     setResponse("");
   };
 
@@ -44,7 +46,7 @@ export default function App({ msalInstance }) {
   };
 
   const ask = async () => {
-    if (!question.trim() || !account) return;
+    if (!question.trim() || !matterId.trim() || !account) return;
 
     setLoading(true);
     setError("");
@@ -53,7 +55,7 @@ export default function App({ msalInstance }) {
       const accessToken = await getAccessToken();
       const res = await axios.post(
         apiUrl,
-        { question: question.trim() },
+        { question: question.trim(), matterId: matterId.trim() },
         {
           headers: {
             Authorization: `Bearer ${accessToken}`
@@ -82,11 +84,16 @@ export default function App({ msalInstance }) {
             <p className="meta">Signed in as {account.username}</p>
             <div className="row">
               <input
+                value={matterId}
+                onChange={(e) => setMatterId(e.target.value)}
+                placeholder="Matter ID (required)"
+              />
+              <input
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="Ask a legal question..."
               />
-              <button onClick={ask} disabled={loading || !question.trim()}>
+              <button onClick={ask} disabled={loading || !question.trim() || !matterId.trim()}>
                 {loading ? "Asking..." : "Ask"}
               </button>
               <button className="ghost" onClick={logout}>

@@ -1,6 +1,7 @@
 import os
 import sys
 import uuid
+import json
 import unicodedata
 import time
 import functools
@@ -8,8 +9,9 @@ import logging
 
 from dotenv import load_dotenv
 from openai import AzureOpenAI
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from azure.identity import AzureCliCredential, DefaultAzureCredential, get_bearer_token_provider
 from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
 from azure.core.exceptions import ClientAuthenticationError, HttpResponseError, ResourceNotFoundError
 
 # ---------------------------
@@ -31,6 +33,7 @@ AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_INDEX = os.getenv("AZURE_SEARCH_INDEX")
+AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
 
 required_vars = {
     "AZURE_OPENAI_ENDPOINT": AZURE_OPENAI_ENDPOINT,
@@ -73,7 +76,8 @@ def retry(max_attempts: int = 3, initial_delay: float = 1.0, backoff: float = 2.
 # ---------------------------
 # Create Azure clients via Entra ID (managed identity / workload identity)
 # ---------------------------
-credential = DefaultAzureCredential()
+use_cli_credential = os.getenv("AZURE_USE_CLI_CREDENTIAL", "").lower() in {"1", "true", "yes"}
+credential = AzureCliCredential() if use_cli_credential else DefaultAzureCredential()
 openai_token_provider = get_bearer_token_provider(
     credential,
     "https://cognitiveservices.azure.com/.default",
@@ -88,7 +92,7 @@ openai_client = AzureOpenAI(
 search_client = SearchClient(
     endpoint=AZURE_SEARCH_ENDPOINT,
     index_name=AZURE_SEARCH_INDEX,
-    credential=credential,
+    credential=AzureKeyCredential(AZURE_SEARCH_KEY) if AZURE_SEARCH_KEY else credential,
 )
 
 
@@ -163,6 +167,27 @@ def upload_documents_with_retry(documents):
     return search_client.upload_documents(documents)
 
 
+def load_document_metadata(documents_folder: str) -> dict:
+    metadata_path = os.path.join(documents_folder, "metadata.json")
+    if not os.path.exists(metadata_path):
+        logger.warning("No metadata file found at %s. Create it to enforce matter-level ingestion.", metadata_path)
+        return {}
+
+    try:
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+    except Exception as e:
+        logger.error("Failed to parse metadata file '%s': %s", metadata_path, e)
+        return {}
+
+    if not isinstance(metadata, dict):
+        logger.error("Metadata file must be a JSON object keyed by filename.")
+        return {}
+
+    logger.info("Loaded metadata for %d document(s).", len(metadata))
+    return metadata
+
+
 def ingest_documents() -> None:
     base_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.dirname(base_dir)
@@ -176,12 +201,23 @@ def ingest_documents() -> None:
 
     files = os.listdir(documents_folder)
     logger.info("📄 Files found: %s", files)
+    metadata_map = load_document_metadata(documents_folder)
 
     documents_to_upload = []
 
     for filename in files:
         if not filename.endswith(".txt"):
             continue
+
+        doc_metadata = metadata_map.get(filename, {})
+        matter_id = (doc_metadata.get("matterId") or "").strip() if isinstance(doc_metadata, dict) else ""
+        if not matter_id:
+            logger.warning("Skipping %s because metadata.matterId is missing.", filename)
+            continue
+
+        practice_area = (doc_metadata.get("practiceArea") or "").strip() if isinstance(doc_metadata, dict) else ""
+        client = (doc_metadata.get("client") or "").strip() if isinstance(doc_metadata, dict) else ""
+        confidentiality_level = (doc_metadata.get("confidentialityLevel") or "").strip() if isinstance(doc_metadata, dict) else ""
 
         logger.info("🔍 Processing file: %s", filename)
 
@@ -215,6 +251,10 @@ def ingest_documents() -> None:
                     "contentVector": emb,
                     "source": filename,
                     "chunk_index": idx,
+                    "matterId": matter_id,
+                    "practiceArea": practice_area,
+                    "client": client,
+                    "confidentialityLevel": confidentiality_level,
                 }
             )
 

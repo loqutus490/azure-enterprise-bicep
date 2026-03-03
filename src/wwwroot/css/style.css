@@ -237,6 +237,34 @@ body {
     max-width: 100%;
 }
 
+.matter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.matter-row label {
+    font-size: 12px;
+    color: var(--text-muted);
+    min-width: 60px;
+}
+
+.matter-row input {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: var(--text);
+    background: #fff;
+}
+
+.matter-row input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
 .input-wrapper {
     display: flex;
     align-items: flex-end;
