@@ -5,19 +5,34 @@ set -e
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-ENV_FILE="${1:-./local.env}"
+DOTNET_ADAPTER="./scripts/adapters/dotnet-env.sh"
+ENV_FILE="${1:-}"
+
+if [ -z "$ENV_FILE" ]; then
+  if [ -f "./.env.shared" ]; then
+    ENV_FILE="./.env.shared"
+  else
+    ENV_FILE="./local.env"
+  fi
+fi
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "❌ Config file not found: $ENV_FILE"
-  echo "   Copy local.env.example → local.env and fill in your values."
+  echo "   Copy .env.shared.example -> .env.shared (recommended)"
+  echo "   or local.env.example -> local.env (legacy)."
   exit 1
 fi
 
 echo "📂 Loading config from $ENV_FILE"
-set -a
-# shellcheck source=/dev/null
-source "$ENV_FILE"
-set +a
+if grep -q '^RAG_' "$ENV_FILE"; then
+  # shellcheck source=/dev/null
+  source "$DOTNET_ADAPTER" "$ENV_FILE"
+else
+  set -a
+  # shellcheck source=/dev/null
+  source "$ENV_FILE"
+  set +a
+fi
 
 required_vars=(
   "AzureSearch__Endpoint"

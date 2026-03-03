@@ -11,7 +11,7 @@ client = AzureOpenAI(
 )
 
 response = client.embeddings.create(
-    model="text-embedding-3-large",
+    model=os.environ["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"],
     input="Test embedding."
 )
 

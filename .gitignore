@@ -12,6 +12,8 @@ publish/
 # Local environment files
 local.env
 .env
+.env.*
+!.env.shared.example
 
 # macOS / Windows system files
 .DS_Store
@@ -19,6 +21,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Frontend artifacts
+node_modules/
+dist/
 
 # Future-proof secret patterns
 *creds*.json
