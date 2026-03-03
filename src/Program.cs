@@ -3,6 +3,7 @@ using Azure.AI.OpenAI;
 using Azure.Search.Documents;
 using Azure.Search.Documents.Models;
 using System.Diagnostics;
+using System.Text;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Identity.Web;
@@ -92,6 +93,10 @@ if (bypassAuthInDevelopment)
     logger.LogWarning("Authorization bypass is enabled for Development. Do not enable this outside local debugging.");
 }
 
+// Serve the built-in web chat UI from wwwroot.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseCors("AllowFrontend");
 
 // 🔐 Enable auth middleware
@@ -132,6 +137,7 @@ SearchClient searchClient = new SearchClient(searchEndpoint, searchIndexName, cr
 
 // Public health endpoint
 app.MapGet("/ping", () => "pong");
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
 // 🔐 Protected version endpoint
 var versionEndpoint = app.MapGet("/version", () => "SECURED_BUILD_V1");
@@ -180,7 +186,7 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
         var searchResults =
             await searchClient.SearchAsync<SearchDocument>(question, searchOptions);
 
-        var context = "";
+        var contextBuilder = new StringBuilder();
         var retrievedFilenames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var retrievedChunkCount = 0;
 
@@ -199,9 +205,10 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
                 retrievedFilenames.Add(sourceOrFilename);
 
             if (result.Document.ContainsKey("content"))
-                context += result.Document["content"]?.ToString() + "\n";
+                contextBuilder.AppendLine(result.Document["content"]?.ToString());
         }
 
+        var context = contextBuilder.ToString();
         if (string.IsNullOrWhiteSpace(context))
         {
             logger.LogInformation("AskRequest completed with no retrieval results. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} DurationMs={DurationMs}",
@@ -228,6 +235,16 @@ Question:
 """;
 
         var response = await chatClient.CompleteChatAsync(controlledPrompt);
+        var answerText = response.Value.Content.FirstOrDefault()?.Text;
+
+        if (string.IsNullOrWhiteSpace(answerText))
+        {
+            logger.LogWarning("AskRequest completed with empty model response. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} DurationMs={DurationMs}",
+                question.Length,
+                retrievedChunkCount,
+                stopwatch.ElapsedMilliseconds);
+            return Results.Problem("Model returned an empty response.");
+        }
 
         logger.LogInformation("AskRequest completed. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} RetrievedFiles={RetrievedFiles} DurationMs={DurationMs}",
             question.Length,
@@ -235,7 +252,7 @@ Question:
             string.Join(',', retrievedFilenames),
             stopwatch.ElapsedMilliseconds);
 
-        return Results.Ok(new { answer = response.Value.Content[0].Text });
+        return Results.Ok(new { answer = answerText });
     }
     catch (Exception ex)
     {
