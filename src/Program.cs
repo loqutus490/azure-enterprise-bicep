@@ -4,6 +4,7 @@ using Azure.Search.Documents;
 using Azure.Search.Documents.Models;
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Identity.Web;
@@ -18,6 +19,10 @@ builder.Services
 var requiredApiRole = builder.Configuration["Authorization:RequiredRole"] ?? "Api.Access";
 var requiredScope = builder.Configuration["Authorization:RequiredScope"] ?? "access_as_user";
 var allowedClientAppIds = builder.Configuration.GetSection("Authorization:AllowedClientAppIds").Get<string[]>() ?? Array.Empty<string>();
+var matterIdClaimTypes = builder.Configuration.GetSection("Authorization:MatterIdClaimTypes").Get<string[]>() ??
+    new[] { "matter_ids", "matters", "matterId", "extension_matterIds" };
+var bypassMatterAuthorizationInDevelopment = builder.Environment.IsDevelopment()
+    && builder.Configuration.GetValue<bool>("Authorization:BypassMatterAuthorizationInDevelopment");
 var allowedClientAppIdSet = new HashSet<string>(
     allowedClientAppIds.Where(clientAppId => !string.IsNullOrWhiteSpace(clientAppId)),
     StringComparer.OrdinalIgnoreCase);
@@ -93,6 +98,11 @@ if (bypassAuthInDevelopment)
     logger.LogWarning("Authorization bypass is enabled for Development. Do not enable this outside local debugging.");
 }
 
+if (bypassMatterAuthorizationInDevelopment)
+{
+    logger.LogWarning("Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.");
+}
+
 // Serve the built-in web chat UI from wwwroot.
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -147,14 +157,52 @@ if (!bypassAuthInDevelopment)
 }
 
 // 🔐 Protected RAG endpoint
-var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
+var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext httpContext) =>
 {
     var stopwatch = Stopwatch.StartNew();
 
     if (string.IsNullOrWhiteSpace(request.Question))
         return Results.BadRequest("Question is required.");
 
+    if (string.IsNullOrWhiteSpace(request.MatterId))
+    {
+        logger.LogWarning("AskRequest rejected due to missing matterId. QuestionLength={QuestionLength}", request.Question.Length);
+        return Results.BadRequest("matterId is required.");
+    }
+
+    if (!bypassMatterAuthorizationInDevelopment)
+    {
+        var authorizedMatterIds = GetAuthorizedMatterIds(httpContext.User, matterIdClaimTypes);
+
+        if (authorizedMatterIds.Count == 0)
+        {
+            logger.LogWarning("AskRequest denied due to missing matter claims. MatterId={MatterId}", request.MatterId);
+            return Results.Forbid();
+        }
+
+        if (!authorizedMatterIds.Contains(request.MatterId))
+        {
+            logger.LogWarning("AskRequest denied by matter authorization. RequestedMatterId={RequestedMatterId}", request.MatterId);
+            return Results.Forbid();
+        }
+    }
+
     var question = request.Question;
+    var filters = new List<string>
+    {
+        $"matterId eq '{EscapeODataString(request.MatterId)}'"
+    };
+
+    if (!string.IsNullOrWhiteSpace(request.PracticeArea))
+        filters.Add($"practiceArea eq '{EscapeODataString(request.PracticeArea)}'");
+
+    if (!string.IsNullOrWhiteSpace(request.Client))
+        filters.Add($"client eq '{EscapeODataString(request.Client)}'");
+
+    if (!string.IsNullOrWhiteSpace(request.ConfidentialityLevel))
+        filters.Add($"confidentialityLevel eq '{EscapeODataString(request.ConfidentialityLevel)}'");
+
+    var searchFilter = string.Join(" and ", filters);
 
     var chatClient = openAiClient.GetChatClient(chatDeploymentName);
     var embeddingClient = openAiClient.GetEmbeddingClient(embeddingDeploymentName);
@@ -175,11 +223,16 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
                     Fields = { "contentVector" }
                 }
             }
-        }
+        },
+        Filter = searchFilter
     };
     searchOptions.Select.Add("content");
     searchOptions.Select.Add("source");
     searchOptions.Select.Add("filename");
+    searchOptions.Select.Add("matterId");
+    searchOptions.Select.Add("practiceArea");
+    searchOptions.Select.Add("client");
+    searchOptions.Select.Add("confidentialityLevel");
 
     try
     {
@@ -211,8 +264,10 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
         var context = contextBuilder.ToString();
         if (string.IsNullOrWhiteSpace(context))
         {
-            logger.LogInformation("AskRequest completed with no retrieval results. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} DurationMs={DurationMs}",
+            logger.LogInformation("AskRequest completed with no retrieval results. QuestionLength={QuestionLength} MatterId={MatterId} SearchFilter={SearchFilter} RetrievedChunkCount={RetrievedChunkCount} DurationMs={DurationMs}",
                 question.Length,
+                request.MatterId,
+                searchFilter,
                 retrievedChunkCount,
                 stopwatch.ElapsedMilliseconds);
 
@@ -246,8 +301,10 @@ Question:
             return Results.Problem("Model returned an empty response.");
         }
 
-        logger.LogInformation("AskRequest completed. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} RetrievedFiles={RetrievedFiles} DurationMs={DurationMs}",
+        logger.LogInformation("AskRequest completed. QuestionLength={QuestionLength} MatterId={MatterId} SearchFilter={SearchFilter} RetrievedChunkCount={RetrievedChunkCount} RetrievedFiles={RetrievedFiles} DurationMs={DurationMs}",
             question.Length,
+            request.MatterId,
+            searchFilter,
             retrievedChunkCount,
             string.Join(',', retrievedFilenames),
             stopwatch.ElapsedMilliseconds);
@@ -268,5 +325,52 @@ if (!bypassAuthInDevelopment)
 
 app.Run();
 
-public record AskRequest(string Question);
+static string EscapeODataString(string value) => value.Replace("'", "''");
+
+static HashSet<string> GetAuthorizedMatterIds(System.Security.Claims.ClaimsPrincipal user, IEnumerable<string> claimTypes)
+{
+    var authorizedMatterIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var claimType in claimTypes.Where(ct => !string.IsNullOrWhiteSpace(ct)))
+    {
+        foreach (var claim in user.FindAll(claimType))
+        {
+            foreach (var parsedMatterId in ParseMatterIds(claim.Value))
+                authorizedMatterIds.Add(parsedMatterId);
+        }
+    }
+
+    return authorizedMatterIds;
+}
+
+static IEnumerable<string> ParseMatterIds(string rawValue)
+{
+    if (string.IsNullOrWhiteSpace(rawValue))
+        return Array.Empty<string>();
+
+    var trimmed = rawValue.Trim();
+    if (trimmed.StartsWith("[", StringComparison.Ordinal))
+    {
+        try
+        {
+            var jsonArray = JsonSerializer.Deserialize<string[]>(trimmed);
+            if (jsonArray is { Length: > 0 })
+                return jsonArray.Where(v => !string.IsNullOrWhiteSpace(v)).Select(v => v.Trim());
+        }
+        catch
+        {
+            // Fall back to delimiter parsing.
+        }
+    }
+
+    return trimmed
+        .Split([',', ';', '|', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+}
+
+public record AskRequest(
+    string Question,
+    string MatterId,
+    string? PracticeArea = null,
+    string? Client = null,
+    string? ConfidentialityLevel = null);
 public partial class Program { }

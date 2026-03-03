@@ -22,6 +22,19 @@ public class AuthBypassIntegrationTests
     }
 
     [Fact]
+    public async Task Ask_ReturnsBadRequest_WhenMatterIdMissing_WithDevelopmentBypassEnabled()
+    {
+        await using var factory = new LegalRagAppFactory("Development", bypassAuthInDevelopment: true);
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsync(
+            "/ask",
+            new StringContent("""{"question":"hello"}""", Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Ask_ReturnsUnauthorized_WithoutToken_WhenDevelopmentBypassDisabled()
     {
         await using var factory = new LegalRagAppFactory("Development", bypassAuthInDevelopment: false);
@@ -67,7 +80,8 @@ internal sealed class LegalRagAppFactory(string environmentName, bool bypassAuth
                 ["AzureSearch:Endpoint"] = "https://example-search.search.windows.net",
                 ["AzureSearch:Index"] = "legal-index",
                 ["Authorization:RequiredRole"] = "Api.Access",
-                ["Authorization:BypassAuthInDevelopment"] = bypassAuthInDevelopment ? "true" : "false"
+                ["Authorization:BypassAuthInDevelopment"] = bypassAuthInDevelopment ? "true" : "false",
+                ["Authorization:BypassMatterAuthorizationInDevelopment"] = "true"
             };
 
             configBuilder.AddInMemoryCollection(testConfig);

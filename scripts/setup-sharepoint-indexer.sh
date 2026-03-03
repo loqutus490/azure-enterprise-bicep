@@ -149,7 +149,11 @@ INDEX_BODY=$(cat <<EOF
         {"name": "metadata_spo_item_content_type", "type": "Edm.String", "filterable": true, "facetable": true},
         {"name": "metadata_spo_item_last_modified", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true},
         {"name": "metadata_spo_item_size", "type": "Edm.Int64", "filterable": true, "sortable": true},
-        {"name": "metadata_spo_site_library", "type": "Edm.String", "filterable": true, "facetable": true}
+        {"name": "metadata_spo_site_library", "type": "Edm.String", "filterable": true, "facetable": true},
+        {"name": "matterId", "type": "Edm.String", "filterable": true, "facetable": true},
+        {"name": "practiceArea", "type": "Edm.String", "filterable": true, "facetable": true},
+        {"name": "client", "type": "Edm.String", "filterable": true, "facetable": true},
+        {"name": "confidentialityLevel", "type": "Edm.String", "filterable": true, "facetable": true}
     ],
     "semantic": {
         "configurations": [

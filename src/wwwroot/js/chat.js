@@ -2,6 +2,7 @@
     const chatMessages = document.getElementById('chatMessages');
     const chatForm = document.getElementById('chatForm');
     const questionInput = document.getElementById('questionInput');
+    const matterIdInput = document.getElementById('matterIdInput');
     const sendBtn = document.getElementById('sendBtn');
 
     // Auto-resize textarea
@@ -21,7 +22,8 @@
     chatForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         const question = questionInput.value.trim();
-        if (!question) return;
+        const matterId = matterIdInput.value.trim();
+        if (!question || !matterId) return;
 
         // Clear welcome message on first question
         const welcome = chatMessages.querySelector('.welcome-message');
@@ -38,7 +40,10 @@
             const response = await fetch('/ask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: question })
+                body: JSON.stringify({
+                    question: question,
+                    matterId: matterId
+                })
             });
 
             typingEl.remove();

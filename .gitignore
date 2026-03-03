@@ -26,6 +26,14 @@ Thumbs.db
 node_modules/
 dist/
 
+# Python artifacts
+__pycache__/
+*.pyc
+.venv/
+
+# Local document metadata map (contains client/matter labels)
+documents/metadata.json
+
 # Future-proof secret patterns
 *creds*.json
 *secret*.json
