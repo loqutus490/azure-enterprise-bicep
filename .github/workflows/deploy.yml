@@ -30,15 +30,29 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Validate Azure OIDC Inputs
+        run: |
+          set -euo pipefail
+
+          [[ -n "${{ vars.AZURE_CLIENT_ID }}" ]] || { echo "Missing variable: AZURE_CLIENT_ID"; exit 1; }
+          [[ -n "${{ vars.AZURE_TENANT_ID }}" ]] || { echo "Missing variable: AZURE_TENANT_ID"; exit 1; }
+          [[ -n "${{ vars.AZURE_SUBSCRIPTION_ID }}" ]] || { echo "Missing variable: AZURE_SUBSCRIPTION_ID"; exit 1; }
+
+          echo "Azure OIDC inputs present for environment '${{ env.ENVIRONMENT }}'."
+
       - name: Azure Login
         uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true
 
-      - name: Verify Azure Subscription
-        run: az account show --query "{name:name,id:id,tenantId:tenantId}" -o table
+      - name: Set and Verify Azure Subscription
+        run: |
+          set -euo pipefail
+          az account set --subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
+          az account show --query "{name:name,id:id,tenantId:tenantId}" -o table
 
       - name: Validate Bicep
         run: |
@@ -153,15 +167,29 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Validate Azure OIDC Inputs
+        run: |
+          set -euo pipefail
+
+          [[ -n "${{ vars.AZURE_CLIENT_ID }}" ]] || { echo "Missing variable: AZURE_CLIENT_ID"; exit 1; }
+          [[ -n "${{ vars.AZURE_TENANT_ID }}" ]] || { echo "Missing variable: AZURE_TENANT_ID"; exit 1; }
+          [[ -n "${{ vars.AZURE_SUBSCRIPTION_ID }}" ]] || { echo "Missing variable: AZURE_SUBSCRIPTION_ID"; exit 1; }
+
+          echo "Azure OIDC inputs present for environment '${{ env.ENVIRONMENT }}'."
+
       - name: Azure Login
         uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true
 
-      - name: Verify Azure Subscription
-        run: az account show --query "{name:name,id:id,tenantId:tenantId}" -o table
+      - name: Set and Verify Azure Subscription
+        run: |
+          set -euo pipefail
+          az account set --subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
+          az account show --query "{name:name,id:id,tenantId:tenantId}" -o table
 
       - name: Validate Bicep
         run: |
