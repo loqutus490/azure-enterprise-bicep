@@ -17,6 +17,8 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Verify Azure Subscription
+        run: az account show --query "{name:name,id:id,tenantId:tenantId}" -o table
       - name: Run Tests
         run: dotnet test
       - name: Install Frontend

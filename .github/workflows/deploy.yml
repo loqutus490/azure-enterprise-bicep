@@ -31,6 +31,9 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Verify Azure Subscription
+        run: az account show --query "{name:name,id:id,tenantId:tenantId}" -o table
+
       - name: Validate Bicep
         run: |
           az bicep build --file infra/main.bicep
