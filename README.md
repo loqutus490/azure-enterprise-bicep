@@ -81,6 +81,8 @@ scripts/
   full-deploy.sh                # Build + configure + deploy in one step
   tenant-deploy.sh              # Multi-tenant deployment
   run-local.sh                  # Run the app locally
+  run-query.sh                  # Run interactive Python query tool via shared env adapter
+  run-test-embedding.sh         # Run Python embedding connectivity test via shared env adapter
   ingest.py                     # Document ingestion (embeddings + upload)
   query.py                      # Interactive RAG query CLI
 ```
@@ -93,6 +95,19 @@ scripts/
 - .NET 8 SDK
 - Python 3.8+ (for document ingestion)
 - An Azure subscription with Owner/Contributor access
+
+### Shared Environment Config (Recommended)
+
+This repo now supports a canonical shared env file and adapters for each runtime:
+
+```bash
+cp .env.shared.example .env.shared
+# Edit .env.shared with real values
+```
+
+- .NET adapter: `scripts/adapters/dotnet-env.sh`
+- Python adapter: `scripts/adapters/python-env.sh`
+- Vite adapter generator: `agent13-frontend/scripts/generate-vite-env.sh`
 
 ### 1. Deploy Infrastructure
 
@@ -142,11 +157,20 @@ az deployment group create \
 For `.txt` files outside of SharePoint:
 
 ```bash
-cp local.env.example local.env
-# Edit local.env with your keys
+cp .env.shared.example .env.shared
+# Edit .env.shared with your keys/values
 
 pip install -r requirements.txt
-python3 scripts/ingest.py
+bash -lc 'source ./scripts/adapters/python-env.sh ./.env.shared && python3 scripts/ingest.py'
+```
+
+### 4b. Query + Embedding Checks (Python Utilities)
+
+Use wrapper scripts so Python tools always consume variables from `.env.shared` through the adapter:
+
+```bash
+./scripts/run-test-embedding.sh ./.env.shared
+./scripts/run-query.sh ./.env.shared
 ```
 
 ### 5. Deploy the Application
@@ -202,4 +226,3 @@ az deployment group create \
 | `entraClientId` | Entra app client ID (enables auth) | `''` (disabled) |
 | `botEntraAppId` | Bot app client ID (enables Teams bot) | `''` (disabled) |
 | `enableNetworking` | VNet + private endpoints | `true` in prod |
-
