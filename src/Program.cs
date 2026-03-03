@@ -82,6 +82,11 @@ var logger = app.Logger;
 var bypassAuthInDevelopment = builder.Environment.IsDevelopment()
     && builder.Configuration.GetValue<bool>("Authorization:BypassAuthInDevelopment");
 
+if (allowedClientAppIdSet.Count == 0 && !builder.Environment.IsDevelopment())
+{
+    logger.LogWarning("Authorization:AllowedClientAppIds is empty outside Development. Any caller app with required scope/role may be allowed.");
+}
+
 if (bypassAuthInDevelopment)
 {
     logger.LogWarning("Authorization bypass is enabled for Development. Do not enable this outside local debugging.");
@@ -167,40 +172,47 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request) =>
         }
     };
     searchOptions.Select.Add("content");
+    searchOptions.Select.Add("source");
+    searchOptions.Select.Add("filename");
 
-    var searchResults =
-        await searchClient.SearchAsync<SearchDocument>(question, searchOptions);
-
-    var context = "";
-    var retrievedFilenames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    var retrievedChunkCount = 0;
-
-    await foreach (var result in searchResults.Value.GetResultsAsync())
+    try
     {
-        retrievedChunkCount++;
+        var searchResults =
+            await searchClient.SearchAsync<SearchDocument>(question, searchOptions);
 
-        if (result.Document.ContainsKey("filename"))
+        var context = "";
+        var retrievedFilenames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var retrievedChunkCount = 0;
+
+        await foreach (var result in searchResults.Value.GetResultsAsync())
         {
-            var filename = result.Document["filename"]?.ToString();
-            if (!string.IsNullOrWhiteSpace(filename))
-                retrievedFilenames.Add(filename);
+            retrievedChunkCount++;
+
+            // Prefer 'source' (used by ingestion), then fallback to 'filename'.
+            var sourceOrFilename = result.Document.TryGetValue("source", out var sourceValue)
+                ? sourceValue?.ToString()
+                : result.Document.TryGetValue("filename", out var filenameValue)
+                    ? filenameValue?.ToString()
+                    : null;
+
+            if (!string.IsNullOrWhiteSpace(sourceOrFilename))
+                retrievedFilenames.Add(sourceOrFilename);
+
+            if (result.Document.ContainsKey("content"))
+                context += result.Document["content"]?.ToString() + "\n";
         }
 
-        if (result.Document.ContainsKey("content"))
-            context += result.Document["content"]?.ToString() + "\n";
-    }
+        if (string.IsNullOrWhiteSpace(context))
+        {
+            logger.LogInformation("AskRequest completed with no retrieval results. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} DurationMs={DurationMs}",
+                question.Length,
+                retrievedChunkCount,
+                stopwatch.ElapsedMilliseconds);
 
-    if (string.IsNullOrWhiteSpace(context))
-    {
-        logger.LogInformation("AskRequest completed with no retrieval results. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} DurationMs={DurationMs}",
-            question.Length,
-            retrievedChunkCount,
-            stopwatch.ElapsedMilliseconds);
+            return Results.Ok(new { answer = "No relevant documents found." });
+        }
 
-        return Results.Ok(new { answer = "No relevant documents found." });
-    }
-
-    var controlledPrompt = $"""
+        var controlledPrompt = $"""
 You are a legal AI assistant for internal law firm use.
 Rules:
 - Answer using only the provided context.
@@ -215,15 +227,21 @@ Question:
 {question}
 """;
 
-    var response = await chatClient.CompleteChatAsync(controlledPrompt);
+        var response = await chatClient.CompleteChatAsync(controlledPrompt);
 
-    logger.LogInformation("AskRequest completed. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} RetrievedFiles={RetrievedFiles} DurationMs={DurationMs}",
-        question.Length,
-        retrievedChunkCount,
-        string.Join(',', retrievedFilenames),
-        stopwatch.ElapsedMilliseconds);
+        logger.LogInformation("AskRequest completed. QuestionLength={QuestionLength} RetrievedChunkCount={RetrievedChunkCount} RetrievedFiles={RetrievedFiles} DurationMs={DurationMs}",
+            question.Length,
+            retrievedChunkCount,
+            string.Join(',', retrievedFilenames),
+            stopwatch.ElapsedMilliseconds);
 
-    return Results.Ok(new { answer = response.Value.Content[0].Text });
+        return Results.Ok(new { answer = response.Value.Content[0].Text });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "AskRequest failed. QuestionLength={QuestionLength} DurationMs={DurationMs}", question.Length, stopwatch.ElapsedMilliseconds);
+        return Results.Problem("Unable to process request at this time.");
+    }
 });
 
 if (!bypassAuthInDevelopment)
