@@ -162,11 +162,17 @@ cp .env.shared.example .env.shared
 # Copy documents/metadata.example.json to documents/metadata.json and
 # set matterId/practiceArea/client/confidentialityLevel per file
 
-pip install -r requirements.txt
-bash -lc 'source ./scripts/adapters/python-env.sh ./.env.shared && python3 scripts/ingest.py'
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+bash -lc 'source ./scripts/adapters/python-env.sh ./.env.shared && .venv/bin/python scripts/ingest.py'
 ```
 
 `scripts/ingest.py` now requires `documents/metadata.json` entries with `matterId` for each ingested file.
+If Search RBAC/token auth is restricted in your environment, you can provide an admin key at runtime:
+
+```bash
+AZURE_SEARCH_KEY='<search-admin-key>' .venv/bin/python scripts/ingest.py
+```
 
 ### 4b. Query + Embedding Checks (Python Utilities)
 
@@ -202,6 +208,7 @@ az webapp deploy \
 ### 5b. `/ask` request contract
 
 `matterId` is required on every request to enforce matter-level retrieval filtering.
+The caller token must also contain a permitted matter claim (configurable claim types under `Authorization:MatterIdClaimTypes`), otherwise the API returns `403 Forbidden`.
 
 ```json
 {
@@ -212,6 +219,10 @@ az webapp deploy \
   "confidentialityLevel": "Internal"
 }
 ```
+
+Development-only bypasses (do not use in production):
+- `Authorization:BypassAuthInDevelopment`
+- `Authorization:BypassMatterAuthorizationInDevelopment`
 
 ### 6. Enable Teams Bot
 
