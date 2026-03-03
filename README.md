@@ -164,15 +164,6 @@ pip install -r requirements.txt
 bash -lc 'source ./scripts/adapters/python-env.sh ./.env.shared && python3 scripts/ingest.py'
 ```
 
-### 7. GitHub Actions Auth (No Keys)
-
-Workflows use Azure OIDC (federated identity), not `AZURE_CREDENTIALS` secrets.  
-Configure these repository/environment variables in GitHub:
-
-- `AZURE_CLIENT_ID`
-- `AZURE_TENANT_ID`
-- `AZURE_SUBSCRIPTION_ID`
-
 ### 4b. Query + Embedding Checks (Python Utilities)
 
 Use wrapper scripts so Python tools always consume variables from `.env.shared` through the adapter:
@@ -214,6 +205,15 @@ az deployment group create \
     entraClientId='<app-client-id>' \
     botEntraAppId='<bot-app-client-id>'
 ```
+
+### 7. GitHub Actions Auth (No Keys)
+
+Workflows use Azure OIDC (federated identity), not `AZURE_CREDENTIALS` secrets.  
+Configure these repository/environment variables in GitHub:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
 
 ## Security Features
 
