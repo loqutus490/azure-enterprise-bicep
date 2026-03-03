@@ -158,7 +158,7 @@ if (!bypassAuthInDevelopment)
 }
 
 // 🔐 Protected RAG endpoint
-var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext httpContext) =>
+var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext httpContext, CancellationToken cancellationToken) =>
 {
     var stopwatch = Stopwatch.StartNew();
 
@@ -208,7 +208,10 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext htt
     var chatClient = openAiClient.GetChatClient(chatDeploymentName);
     var embeddingClient = openAiClient.GetEmbeddingClient(embeddingDeploymentName);
 
-    var embeddingResponse = await embeddingClient.GenerateEmbeddingAsync(question);
+    var embeddingResponse = await embeddingClient.GenerateEmbeddingAsync(
+        question,
+        options: new OpenAI.Embeddings.EmbeddingGenerationOptions(),
+        cancellationToken: cancellationToken);
     var questionVector = embeddingResponse.Value.ToFloats().ToArray();
 
     var searchOptions = new SearchOptions
@@ -289,22 +292,22 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext htt
             return Results.Ok(new { answer = "No relevant documents found." });
         }
 
-        var controlledPrompt = $"""
+        var messages = new List<OpenAI.Chat.ChatMessage>
+        {
+            new OpenAI.Chat.SystemChatMessage(
+                """
 You are a legal AI assistant for internal law firm use.
 Rules:
 - Answer using only the provided context.
 - If context is insufficient, reply exactly: "Insufficient information in approved documents."
 - Do not provide legal advice beyond the source context.
 - Be concise, factual, and cite filenames when available.
+"""
+            ),
+            new OpenAI.Chat.UserChatMessage($"Context:\n{context}\n\nQuestion:\n{question}")
+        };
 
-Context:
-{context}
-
-Question:
-{question}
-""";
-
-        var response = await chatClient.CompleteChatAsync(controlledPrompt);
+        var response = await chatClient.CompleteChatAsync(messages, cancellationToken: cancellationToken);
         var answerText = response.Value.Content.FirstOrDefault()?.Text;
 
         if (string.IsNullOrWhiteSpace(answerText))
