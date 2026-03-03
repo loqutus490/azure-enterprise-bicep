@@ -8,11 +8,17 @@ on:
       - completed
     branches:
       - main
+      - release
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
-  deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  deploy-dev:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
+    environment: dev
 
     env:
       ENVIRONMENT: dev
@@ -26,7 +32,49 @@ jobs:
       - name: Azure Login
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Azure Subscription
+        run: az account show --query "{name:name,id:id,tenantId:tenantId}" -o table
+
+      - name: Validate Bicep
+        run: |
+          az bicep build --file infra/main.bicep
+
+      - name: Deploy to Azure
+        run: |
+          az group create \
+            --name rg-legal-${{ env.ENVIRONMENT }} \
+            --location westus3 \
+            --output none
+
+          az deployment group create \
+            --resource-group rg-legal-${{ env.ENVIRONMENT }} \
+            --template-file infra/main.bicep \
+            --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam
+
+  deploy-prod:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'release' }}
+    runs-on: ubuntu-latest
+    environment: prod
+
+    env:
+      ENVIRONMENT: prod
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Verify Azure Subscription
         run: az account show --query "{name:name,id:id,tenantId:tenantId}" -o table

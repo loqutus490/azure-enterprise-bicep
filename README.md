@@ -47,7 +47,7 @@ Secure internal AI assistant for law firms, built on Azure. Attorneys ask questi
 
 ### Supporting Services
 
-- **Azure Key Vault** - Secrets management (API keys, connection strings)
+- **Azure Key Vault** - Secrets management for non-code secrets with RBAC
 - **Application Insights** - Monitoring, logging, audit trail
 - **Azure VNet** - Network isolation with private endpoints (prod)
 - **Budget Alerts** - Cost controls per environment
@@ -102,7 +102,7 @@ This repo now supports a canonical shared env file and adapters for each runtime
 
 ```bash
 cp .env.shared.example .env.shared
-# Edit .env.shared with real values
+# Edit .env.shared with real endpoints, deployment names, and IDs
 ```
 
 - .NET adapter: `scripts/adapters/dotnet-env.sh`
@@ -158,11 +158,20 @@ For `.txt` files outside of SharePoint:
 
 ```bash
 cp .env.shared.example .env.shared
-# Edit .env.shared with your keys/values
+# Edit .env.shared with your endpoints/deployments
 
 pip install -r requirements.txt
 bash -lc 'source ./scripts/adapters/python-env.sh ./.env.shared && python3 scripts/ingest.py'
 ```
+
+### 7. GitHub Actions Auth (No Keys)
+
+Workflows use Azure OIDC (federated identity), not `AZURE_CREDENTIALS` secrets.  
+Configure these repository/environment variables in GitHub:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
 
 ### 4b. Query + Embedding Checks (Python Utilities)
 

@@ -1,5 +1,5 @@
 python-dotenv
 openai
 azure-search-documents
+azure-identity
 azure-core
-requests

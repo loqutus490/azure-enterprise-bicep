@@ -210,24 +210,6 @@ echo "   OpenAI Deploy  : $OPENAI_DEPLOYMENT"
 echo "   Embed Deploy   : $OPENAI_EMBEDDING_DEPLOYMENT"
 
 # -----------------------------------------------------------------------
-# Fetch service keys
-# -----------------------------------------------------------------------
-echo ""
-echo ">> Fetching service keys..."
-
-SEARCH_KEY=$(az search admin-key show \
-  --service-name "$SEARCH_SERVICE" \
-  --resource-group "$RESOURCE_GROUP" \
-  --query primaryKey -o tsv)
-
-OPENAI_KEY=$(az cognitiveservices account keys list \
-  --name "$OPENAI_RESOURCE" \
-  --resource-group "$RESOURCE_GROUP" \
-  --query key1 -o tsv)
-
-echo "   Keys retrieved."
-
-# -----------------------------------------------------------------------
 # Configure App Service settings
 # -----------------------------------------------------------------------
 echo ""
@@ -239,10 +221,8 @@ az webapp config appsettings set \
   --settings \
     ASPNETCORE_ENVIRONMENT="$ENVIRONMENT" \
     AzureSearch__Endpoint="https://${SEARCH_SERVICE}.search.windows.net" \
-    AzureSearch__Key="$SEARCH_KEY" \
     AzureSearch__Index="legal-index" \
     AzureOpenAI__Endpoint="https://${OPENAI_RESOURCE}.openai.azure.com/" \
-    AzureOpenAI__Key="$OPENAI_KEY" \
     AzureOpenAI__Deployment="$OPENAI_DEPLOYMENT" \
     AzureOpenAI__EmbeddingDeployment="$OPENAI_EMBEDDING_DEPLOYMENT" \
   --output none

@@ -28,11 +28,9 @@ export Authorization__BypassAuthInDevelopment="${RAG_AUTH_BYPASS_IN_DEV:-false}"
 export AzureOpenAI__Endpoint="${RAG_AZURE_OPENAI_ENDPOINT:-}"
 export AzureOpenAI__Deployment="${RAG_AZURE_OPENAI_CHAT_DEPLOYMENT:-}"
 export AzureOpenAI__EmbeddingDeployment="${RAG_AZURE_OPENAI_EMBEDDING_DEPLOYMENT:-}"
-export AzureOpenAI__Key="${RAG_AZURE_OPENAI_KEY:-}"
 
 export AzureSearch__Endpoint="${RAG_AZURE_SEARCH_ENDPOINT:-}"
 export AzureSearch__Index="${RAG_AZURE_SEARCH_INDEX:-}"
-export AzureSearch__Key="${RAG_AZURE_SEARCH_KEY:-}"
 
 # Convert comma-separated values into .NET array env vars:
 # Authorization__AllowedClientAppIds__0=value
