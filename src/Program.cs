@@ -15,30 +15,58 @@ builder.Services
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
 
 var requiredApiRole = builder.Configuration["Authorization:RequiredRole"] ?? "Api.Access";
+var requiredScope = builder.Configuration["Authorization:RequiredScope"] ?? "access_as_user";
 var allowedClientAppIds = builder.Configuration.GetSection("Authorization:AllowedClientAppIds").Get<string[]>() ?? Array.Empty<string>();
 var allowedClientAppIdSet = new HashSet<string>(
     allowedClientAppIds.Where(clientAppId => !string.IsNullOrWhiteSpace(clientAppId)),
     StringComparer.OrdinalIgnoreCase);
+var corsAllowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        if (corsAllowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(corsAllowedOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+    });
+});
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("ApiAccessPolicy", policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireRole(requiredApiRole);
         policy.RequireAssertion(context =>
         {
             var user = context.User;
             var appId = user.FindFirst("azp")?.Value ?? user.FindFirst("appid")?.Value;
+            var scopeClaim = user.FindFirst("scp")?.Value;
+
+            if (!string.IsNullOrWhiteSpace(scopeClaim))
+            {
+                var scopes = scopeClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var hasRequiredScope = scopes.Contains(requiredScope, StringComparer.OrdinalIgnoreCase);
+                if (!hasRequiredScope)
+                    return false;
+
+                if (allowedClientAppIdSet.Count == 0)
+                    return true;
+
+                return !string.IsNullOrWhiteSpace(appId) && allowedClientAppIdSet.Contains(appId);
+            }
 
             if (string.IsNullOrWhiteSpace(appId))
                 return false;
 
-            if (user.HasClaim(claim => claim.Type == "scp"))
-                return false;
-
             var idType = user.FindFirst("idtyp")?.Value;
             if (!string.IsNullOrWhiteSpace(idType) && !string.Equals(idType, "app", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (!user.IsInRole(requiredApiRole))
                 return false;
 
             if (allowedClientAppIdSet.Count == 0)
@@ -58,6 +86,8 @@ if (bypassAuthInDevelopment)
 {
     logger.LogWarning("Authorization bypass is enabled for Development. Do not enable this outside local debugging.");
 }
+
+app.UseCors("AllowFrontend");
 
 // 🔐 Enable auth middleware
 app.UseAuthentication();

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "6686897034821125728"
+      "templateHash": "4212847970938141169"
     }
   },
   "parameters": {
@@ -45,18 +45,62 @@
     "searchIndex": {
       "type": "string",
       "defaultValue": ""
+    },
+    "openAiEndpoint": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "openAiDeployment": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "openAiEmbeddingDeployment": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "appServicePlanSkuName": {
+      "type": "string",
+      "defaultValue": "B1",
+      "metadata": {
+        "description": "App Service plan SKU name (for example: F1, B1, S1)."
+      }
+    },
+    "appServicePlanSkuTier": {
+      "type": "string",
+      "defaultValue": "Basic",
+      "metadata": {
+        "description": "App Service plan SKU tier (for example: Free, Basic, Standard)."
+      }
+    },
+    "existingAppServicePlanResourceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Use an existing App Service Plan resource ID instead of creating one."
+      }
+    },
+    "appLocation": {
+      "type": "string",
+      "defaultValue": "[parameters('location')]",
+      "metadata": {
+        "description": "Location for the App Service app."
+      }
     }
+  },
+  "variables": {
+    "serverFarmId": "[if(empty(parameters('existingAppServicePlanResourceId')), resourceId('Microsoft.Web/serverfarms', format('plan-{0}', parameters('name'))), parameters('existingAppServicePlanResourceId'))]"
   },
   "resources": [
     {
+      "condition": "[empty(parameters('existingAppServicePlanResourceId'))]",
       "type": "Microsoft.Web/serverfarms",
       "apiVersion": "2023-01-01",
       "name": "[format('plan-{0}', parameters('name'))]",
       "location": "[parameters('location')]",
       "kind": "linux",
       "sku": {
-        "name": "B1",
-        "tier": "Basic"
+        "name": "[parameters('appServicePlanSkuName')]",
+        "tier": "[parameters('appServicePlanSkuTier')]"
       },
       "properties": {
         "reserved": true
@@ -66,18 +110,18 @@
       "type": "Microsoft.Web/sites",
       "apiVersion": "2023-01-01",
       "name": "[parameters('name')]",
-      "location": "[parameters('location')]",
+      "location": "[parameters('appLocation')]",
       "kind": "app,linux",
       "identity": {
         "type": "SystemAssigned"
       },
       "properties": {
-        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', format('plan-{0}', parameters('name')))]",
+        "serverFarmId": "[variables('serverFarmId')]",
         "virtualNetworkSubnetId": "[if(parameters('enableVnetIntegration'), parameters('vnetSubnetId'), null())]",
         "httpsOnly": true,
         "siteConfig": {
           "linuxFxVersion": "DOTNETCORE|8.0",
-          "alwaysOn": true,
+          "alwaysOn": "[not(equals(toLower(parameters('appServicePlanSkuTier')), 'free'))]",
           "ftpsState": "Disabled",
           "minTlsVersion": "1.2",
           "http20Enabled": true,
@@ -97,6 +141,18 @@
             {
               "name": "AzureSearch__Index",
               "value": "[parameters('searchIndex')]"
+            },
+            {
+              "name": "AzureOpenAI__Endpoint",
+              "value": "[parameters('openAiEndpoint')]"
+            },
+            {
+              "name": "AzureOpenAI__Deployment",
+              "value": "[parameters('openAiDeployment')]"
+            },
+            {
+              "name": "AzureOpenAI__EmbeddingDeployment",
+              "value": "[parameters('openAiEmbeddingDeployment')]"
             }
           ]
         }

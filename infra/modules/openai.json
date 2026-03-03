@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "5589261746827644732"
+      "templateHash": "12846538309112238727"
     }
   },
   "parameters": {
@@ -26,6 +26,13 @@
     "privateDnsZoneId": {
       "type": "string",
       "defaultValue": ""
+    },
+    "deployModelDeployments": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy default chat and embedding model deployments."
+      }
     }
   },
   "resources": [
@@ -89,6 +96,7 @@
       ]
     },
     {
+      "condition": "[parameters('deployModelDeployments')]",
       "type": "Microsoft.CognitiveServices/accounts/deployments",
       "apiVersion": "2023-05-01",
       "name": "[format('{0}/{1}', parameters('name'), 'gpt-4o')]",
@@ -108,6 +116,7 @@
       ]
     },
     {
+      "condition": "[parameters('deployModelDeployments')]",
       "type": "Microsoft.CognitiveServices/accounts/deployments",
       "apiVersion": "2023-05-01",
       "name": "[format('{0}/{1}', parameters('name'), 'text-embedding-3-large')]",
@@ -135,11 +144,11 @@
     },
     "chatDeploymentName": {
       "type": "string",
-      "value": "gpt-4o"
+      "value": "[if(parameters('deployModelDeployments'), 'gpt-4o', 'gpt-4o')]"
     },
     "embeddingDeploymentName": {
       "type": "string",
-      "value": "text-embedding-3-large"
+      "value": "[if(parameters('deployModelDeployments'), 'text-embedding-3-large', 'text-embedding-3-large')]"
     }
   }
 }

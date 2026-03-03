@@ -1,0 +1,115 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.40.2.10011",
+      "templateHash": "4354851456932075821"
+    }
+  },
+  "parameters": {
+    "name": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "enablePrivateEndpoint": {
+      "type": "bool",
+      "defaultValue": false
+    },
+    "privateEndpointSubnetId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "privateDnsZoneId": {
+      "type": "string",
+      "defaultValue": ""
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Search/searchServices",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('name')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "basic"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "replicaCount": 1,
+        "partitionCount": 1,
+        "hostingMode": "default",
+        "publicNetworkAccess": "[if(parameters('enablePrivateEndpoint'), 'disabled', 'enabled')]",
+        "semanticSearch": "free"
+      }
+    },
+    {
+      "condition": "[parameters('enablePrivateEndpoint')]",
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2023-05-01",
+      "name": "[format('pe-{0}', parameters('name'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "subnet": {
+          "id": "[parameters('privateEndpointSubnetId')]"
+        },
+        "privateLinkServiceConnections": [
+          {
+            "name": "[format('plsc-{0}', parameters('name'))]",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.Search/searchServices', parameters('name'))]",
+              "groupIds": [
+                "searchService"
+              ]
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Search/searchServices', parameters('name'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('enablePrivateEndpoint')]",
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', format('pe-{0}', parameters('name')), 'default')]",
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "config",
+            "properties": {
+              "privateDnsZoneId": "[parameters('privateDnsZoneId')]"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}', parameters('name')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "searchName": {
+      "type": "string",
+      "value": "[parameters('name')]"
+    },
+    "searchEndpoint": {
+      "type": "string",
+      "value": "[format('https://{0}.search.windows.net', parameters('name'))]"
+    },
+    "searchId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Search/searchServices', parameters('name'))]"
+    },
+    "searchPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Search/searchServices', parameters('name')), '2023-11-01', 'full').identity.principalId]"
+    }
+  }
+}
