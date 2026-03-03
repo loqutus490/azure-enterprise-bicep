@@ -121,6 +121,7 @@ var chatDeploymentName = builder.Configuration["AzureOpenAI:Deployment"];
 var embeddingDeploymentName = builder.Configuration["AzureOpenAI:EmbeddingDeployment"];
 var searchEndpointValue = builder.Configuration["AzureSearch:Endpoint"];
 var searchIndexName = builder.Configuration["AzureSearch:Index"];
+var maxContextCharacters = builder.Configuration.GetValue<int?>("Rag:MaxContextCharacters") ?? 12000;
 
 if (string.IsNullOrWhiteSpace(openAiEndpointValue))
     throw new InvalidOperationException("Missing configuration: AzureOpenAI:Endpoint");
@@ -228,7 +229,6 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext htt
     };
     searchOptions.Select.Add("content");
     searchOptions.Select.Add("source");
-    searchOptions.Select.Add("filename");
     searchOptions.Select.Add("matterId");
     searchOptions.Select.Add("practiceArea");
     searchOptions.Select.Add("client");
@@ -239,7 +239,8 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext htt
         var searchResults =
             await searchClient.SearchAsync<SearchDocument>(question, searchOptions);
 
-        var contextBuilder = new StringBuilder();
+        var contextParts = new List<string>();
+        var contextLength = 0;
         var retrievedFilenames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var retrievedChunkCount = 0;
 
@@ -257,11 +258,25 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext htt
             if (!string.IsNullOrWhiteSpace(sourceOrFilename))
                 retrievedFilenames.Add(sourceOrFilename);
 
-            if (result.Document.ContainsKey("content"))
-                contextBuilder.AppendLine(result.Document["content"]?.ToString());
+            if (!result.Document.ContainsKey("content"))
+                continue;
+
+            var content = result.Document["content"]?.ToString();
+            if (string.IsNullOrWhiteSpace(content))
+                continue;
+
+            var contextChunk = string.IsNullOrWhiteSpace(sourceOrFilename)
+                ? content
+                : $"Source: {sourceOrFilename}\n{content}";
+
+            if (contextLength + contextChunk.Length > maxContextCharacters)
+                continue;
+
+            contextParts.Add(contextChunk);
+            contextLength += contextChunk.Length + 1;
         }
 
-        var context = contextBuilder.ToString();
+        var context = string.Join('\n', contextParts);
         if (string.IsNullOrWhiteSpace(context))
         {
             logger.LogInformation("AskRequest completed with no retrieval results. QuestionLength={QuestionLength} MatterId={MatterId} SearchFilter={SearchFilter} RetrievedChunkCount={RetrievedChunkCount} DurationMs={DurationMs}",
