@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "836512777879808700"
+      "templateHash": "11767035213936789137"
     }
   },
   "parameters": {
@@ -100,6 +100,13 @@
       "metadata": {
         "description": "Enable VNet integration and private endpoints for production security."
       }
+    },
+    "deployRoleAssignments": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy RBAC role assignments for the app managed identity (requires roleAssignments/write permissions)."
+      }
     }
   },
   "variables": {
@@ -109,6 +116,7 @@
   },
   "resources": [
     {
+      "condition": "[parameters('deployRoleAssignments')]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
       "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-openai-{1}', parameters('namePrefix'), parameters('environment')))]",
@@ -123,6 +131,7 @@
       ]
     },
     {
+      "condition": "[parameters('deployRoleAssignments')]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
       "scope": "[resourceId('Microsoft.Search/searchServices', format('{0}-search-{1}', parameters('namePrefix'), parameters('environment')))]",
@@ -1247,9 +1256,6 @@
           "name": {
             "value": "[format('{0}-bot-{1}', parameters('namePrefix'), parameters('environment'))]"
           },
-          "location": {
-            "value": "[parameters('location')]"
-          },
           "appServiceUrl": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'app'), '2025-04-01').outputs.appServiceUrl.value]"
           },
@@ -1264,14 +1270,11 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "2572772044503056411"
+              "templateHash": "4884118448766406812"
             }
           },
           "parameters": {
             "name": {
-              "type": "string"
-            },
-            "location": {
               "type": "string"
             },
             "appServiceUrl": {

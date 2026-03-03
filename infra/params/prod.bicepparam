@@ -5,6 +5,7 @@ param location = 'eastus'
 param appServicePlanSkuName = 'B1'
 param appServicePlanSkuTier = 'Basic'
 param deployOpenAiModels = false
+param deployRoleAssignments = false
 param budgetContactEmails = [
   'roybernales@agent13.ai'
 ]

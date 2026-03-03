@@ -41,6 +41,9 @@ param appLocation string = location
 @description('Enable VNet integration and private endpoints for production security.')
 param enableNetworking bool = environment == 'prod'
 
+@description('Deploy RBAC role assignments for the app managed identity (requires roleAssignments/write permissions).')
+param deployRoleAssignments bool = true
+
 // =============================================
 // Networking (VNet, NSGs, Private DNS)
 // =============================================
@@ -149,7 +152,7 @@ var openAiUserRoleDefinitionId = '/subscriptions/${subscription().subscriptionId
 var searchIndexDataReaderRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/1407120a-92aa-4202-b7e9-c0e197c71c8f'
 var appResourceName = '${namePrefix}-app-${environment}'
 
-resource openAiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource openAiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployRoleAssignments) {
   name: guid(openaiAccount.id, appResourceName, openAiUserRoleDefinitionId)
   scope: openaiAccount
   properties: {
@@ -159,7 +162,7 @@ resource openAiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-
   }
 }
 
-resource searchDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource searchDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployRoleAssignments) {
   name: guid(searchService.id, appResourceName, searchIndexDataReaderRoleDefinitionId)
   scope: searchService
   properties: {
@@ -176,7 +179,6 @@ module bot './modules/botservice.bicep' = if (botEntraAppId != '') {
   name: 'bot'
   params: {
     name: '${namePrefix}-bot-${environment}'
-    location: location
     appServiceUrl: app.outputs.appServiceUrl
     entraAppId: botEntraAppId
   }
