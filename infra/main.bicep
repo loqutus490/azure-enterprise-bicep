@@ -137,6 +137,7 @@ module app './modules/appservice.bicep' = {
     appServicePlanSkuTier: appServicePlanSkuTier
     existingAppServicePlanResourceId: existingAppServicePlanResourceId
     appLocation: appLocation
+    unauthenticatedClientAction: environment == 'dev' ? 'RedirectToLoginPage' : 'Return401'
   }
 }
 

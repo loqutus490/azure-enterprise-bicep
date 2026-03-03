@@ -19,6 +19,12 @@ param appServicePlanSkuTier string = 'Basic'
 param existingAppServicePlanResourceId string = ''
 @description('Location for the App Service app.')
 param appLocation string = location
+@description('EasyAuth behavior for unauthenticated clients.')
+@allowed([
+  'Return401'
+  'RedirectToLoginPage'
+])
+param unauthenticatedClientAction string = 'Return401'
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = if (empty(existingAppServicePlanResourceId)) {
   name: 'plan-${name}'
@@ -93,7 +99,7 @@ resource authSettings 'Microsoft.Web/sites/config@2023-01-01' = if (enableAuth) 
   properties: {
     globalValidation: {
       requireAuthentication: true
-      unauthenticatedClientAction: 'Return401'
+      unauthenticatedClientAction: unauthenticatedClientAction
     }
     identityProviders: {
       azureActiveDirectory: {
