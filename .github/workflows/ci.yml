@@ -5,7 +5,6 @@ on:
   pull_request:
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
@@ -17,16 +16,20 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Verify Azure Subscription
-        run: az account show --query "{name:name,id:id,tenantId:tenantId}" -o table
       - name: Run Tests
         run: dotnet test
+      - name: Publish Backend
+        run: dotnet publish ./src/LegalRagApp.csproj -c Release -o ./publish-backend
+      - name: Package Backend Artifact
+        run: |
+          cd publish-backend
+          zip -r ../backend-publish.zip .
+      - name: Upload Backend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-publish-${{ github.sha }}
+          path: backend-publish.zip
+          if-no-files-found: error
       - name: Install Frontend
         working-directory: agent13-frontend
         run: npm install
@@ -34,3 +37,9 @@ jobs:
       - name: Build Frontend
         working-directory: agent13-frontend
         run: npm run build
+      - name: Upload Frontend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: agent13-frontend/dist
+          if-no-files-found: error
