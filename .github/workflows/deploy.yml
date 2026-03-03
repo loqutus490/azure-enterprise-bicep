@@ -45,16 +45,26 @@ jobs:
           az bicep build --file infra/main.bicep
 
       - name: Deploy Infrastructure
+        id: deploy_infra
         run: |
           az group create \
             --name rg-legal-${{ env.ENVIRONMENT }} \
             --location westus3 \
             --output none
 
-          az deployment group create \
+          deployment_output="$(az deployment group create \
             --resource-group rg-legal-${{ env.ENVIRONMENT }} \
             --template-file infra/main.bicep \
-            --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam
+            --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam \
+            --query "properties.outputs.appUrl.value" \
+            -o tsv)"
+
+          if [[ -z "$deployment_output" ]]; then
+            echo "Deployment output appUrl is empty."
+            exit 1
+          fi
+
+          echo "app_url=$deployment_output" >> "$GITHUB_OUTPUT"
 
       - name: Download Backend Artifact
         uses: actions/download-artifact@v4
@@ -67,12 +77,14 @@ jobs:
       - name: Resolve Web App
         id: resolve_app
         run: |
-          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
-          WEBAPP_NAME="$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
+          APP_URL="${{ steps.deploy_infra.outputs.app_url }}"
+          WEBAPP_NAME="$(echo "$APP_URL" | sed -E 's#^https://([^./]+).*#\\1#')"
+
           if [[ -z "$WEBAPP_NAME" ]]; then
-            echo "No Web App found in resource group '$RESOURCE_GROUP'."
+            echo "Unable to derive Web App name from appUrl output: $APP_URL"
             exit 1
           fi
+
           echo "name=$WEBAPP_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Deploy Backend Artifact
@@ -156,16 +168,26 @@ jobs:
           az bicep build --file infra/main.bicep
 
       - name: Deploy Infrastructure
+        id: deploy_infra
         run: |
           az group create \
             --name rg-legal-${{ env.ENVIRONMENT }} \
             --location westus3 \
             --output none
 
-          az deployment group create \
+          deployment_output="$(az deployment group create \
             --resource-group rg-legal-${{ env.ENVIRONMENT }} \
             --template-file infra/main.bicep \
-            --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam
+            --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam \
+            --query "properties.outputs.appUrl.value" \
+            -o tsv)"
+
+          if [[ -z "$deployment_output" ]]; then
+            echo "Deployment output appUrl is empty."
+            exit 1
+          fi
+
+          echo "app_url=$deployment_output" >> "$GITHUB_OUTPUT"
 
       - name: Download Backend Artifact
         uses: actions/download-artifact@v4
@@ -178,12 +200,14 @@ jobs:
       - name: Resolve Web App
         id: resolve_app
         run: |
-          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
-          WEBAPP_NAME="$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
+          APP_URL="${{ steps.deploy_infra.outputs.app_url }}"
+          WEBAPP_NAME="$(echo "$APP_URL" | sed -E 's#^https://([^./]+).*#\\1#')"
+
           if [[ -z "$WEBAPP_NAME" ]]; then
-            echo "No Web App found in resource group '$RESOURCE_GROUP'."
+            echo "Unable to derive Web App name from appUrl output: $APP_URL"
             exit 1
           fi
+
           echo "name=$WEBAPP_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Deploy Backend Artifact
