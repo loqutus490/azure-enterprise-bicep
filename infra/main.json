@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "9054443423865730822"
+      "templateHash": "836512777879808700"
     }
   },
   "parameters": {
@@ -59,6 +59,41 @@
         "description": "Email addresses for budget alert notifications."
       }
     },
+    "appServicePlanSkuName": {
+      "type": "string",
+      "defaultValue": "B1",
+      "metadata": {
+        "description": "App Service plan SKU name (for example: F1, B1, S1)."
+      }
+    },
+    "appServicePlanSkuTier": {
+      "type": "string",
+      "defaultValue": "Basic",
+      "metadata": {
+        "description": "App Service plan SKU tier (for example: Free, Basic, Standard)."
+      }
+    },
+    "deployOpenAiModels": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy default Azure OpenAI model deployments from IaC."
+      }
+    },
+    "existingAppServicePlanResourceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Existing App Service Plan resource ID to reuse instead of creating a new plan."
+      }
+    },
+    "appLocation": {
+      "type": "string",
+      "defaultValue": "[parameters('location')]",
+      "metadata": {
+        "description": "Location for the App Service app. Defaults to the deployment location."
+      }
+    },
     "enableNetworking": {
       "type": "bool",
       "defaultValue": "[equals(parameters('environment'), 'prod')]",
@@ -67,7 +102,40 @@
       }
     }
   },
+  "variables": {
+    "openAiUserRoleDefinitionId": "[format('/subscriptions/{0}/providers/Microsoft.Authorization/roleDefinitions/5e0bd9bd-7b93-4f28-af87-19fc36ad61bd', subscription().subscriptionId)]",
+    "searchIndexDataReaderRoleDefinitionId": "[format('/subscriptions/{0}/providers/Microsoft.Authorization/roleDefinitions/1407120a-92aa-4202-b7e9-c0e197c71c8f', subscription().subscriptionId)]",
+    "appResourceName": "[format('{0}-app-{1}', parameters('namePrefix'), parameters('environment'))]"
+  },
   "resources": [
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-openai-{1}', parameters('namePrefix'), parameters('environment')))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-openai-{1}', parameters('namePrefix'), parameters('environment'))), variables('appResourceName'), variables('openAiUserRoleDefinitionId'))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'app'), '2025-04-01').outputs.appServicePrincipalId.value]",
+        "roleDefinitionId": "[variables('openAiUserRoleDefinitionId')]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'app')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Search/searchServices', format('{0}-search-{1}', parameters('namePrefix'), parameters('environment')))]",
+      "name": "[guid(resourceId('Microsoft.Search/searchServices', format('{0}-search-{1}', parameters('namePrefix'), parameters('environment'))), variables('appResourceName'), variables('searchIndexDataReaderRoleDefinitionId'))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'app'), '2025-04-01').outputs.appServicePrincipalId.value]",
+        "roleDefinitionId": "[variables('searchIndexDataReaderRoleDefinitionId')]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'app')]"
+      ]
+    },
     {
       "condition": "[parameters('enableNetworking')]",
       "type": "Microsoft.Resources/deployments",
@@ -569,6 +637,9 @@
           "location": {
             "value": "[parameters('location')]"
           },
+          "deployModelDeployments": {
+            "value": "[parameters('deployOpenAiModels')]"
+          },
           "enablePrivateEndpoint": {
             "value": "[parameters('enableNetworking')]"
           },
@@ -582,7 +653,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "5589261746827644732"
+              "templateHash": "12846538309112238727"
             }
           },
           "parameters": {
@@ -603,6 +674,13 @@
             "privateDnsZoneId": {
               "type": "string",
               "defaultValue": ""
+            },
+            "deployModelDeployments": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Deploy default chat and embedding model deployments."
+              }
             }
           },
           "resources": [
@@ -666,6 +744,7 @@
               ]
             },
             {
+              "condition": "[parameters('deployModelDeployments')]",
               "type": "Microsoft.CognitiveServices/accounts/deployments",
               "apiVersion": "2023-05-01",
               "name": "[format('{0}/{1}', parameters('name'), 'gpt-4o')]",
@@ -685,6 +764,7 @@
               ]
             },
             {
+              "condition": "[parameters('deployModelDeployments')]",
               "type": "Microsoft.CognitiveServices/accounts/deployments",
               "apiVersion": "2023-05-01",
               "name": "[format('{0}/{1}', parameters('name'), 'text-embedding-3-large')]",
@@ -712,11 +792,11 @@
             },
             "chatDeploymentName": {
               "type": "string",
-              "value": "gpt-4o"
+              "value": "[if(parameters('deployModelDeployments'), 'gpt-4o', 'gpt-4o')]"
             },
             "embeddingDeploymentName": {
               "type": "string",
-              "value": "text-embedding-3-large"
+              "value": "[if(parameters('deployModelDeployments'), 'text-embedding-3-large', 'text-embedding-3-large')]"
             }
           }
         }
@@ -903,6 +983,27 @@
           },
           "searchIndex": {
             "value": "[parameters('searchIndexName')]"
+          },
+          "openAiEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.endpoint.value]"
+          },
+          "openAiDeployment": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.chatDeploymentName.value]"
+          },
+          "openAiEmbeddingDeployment": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.embeddingDeploymentName.value]"
+          },
+          "appServicePlanSkuName": {
+            "value": "[parameters('appServicePlanSkuName')]"
+          },
+          "appServicePlanSkuTier": {
+            "value": "[parameters('appServicePlanSkuTier')]"
+          },
+          "existingAppServicePlanResourceId": {
+            "value": "[parameters('existingAppServicePlanResourceId')]"
+          },
+          "appLocation": {
+            "value": "[parameters('appLocation')]"
           }
         },
         "template": {
@@ -912,7 +1013,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "6686897034821125728"
+              "templateHash": "4212847970938141169"
             }
           },
           "parameters": {
@@ -952,18 +1053,62 @@
             "searchIndex": {
               "type": "string",
               "defaultValue": ""
+            },
+            "openAiEndpoint": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "openAiDeployment": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "openAiEmbeddingDeployment": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "appServicePlanSkuName": {
+              "type": "string",
+              "defaultValue": "B1",
+              "metadata": {
+                "description": "App Service plan SKU name (for example: F1, B1, S1)."
+              }
+            },
+            "appServicePlanSkuTier": {
+              "type": "string",
+              "defaultValue": "Basic",
+              "metadata": {
+                "description": "App Service plan SKU tier (for example: Free, Basic, Standard)."
+              }
+            },
+            "existingAppServicePlanResourceId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Use an existing App Service Plan resource ID instead of creating one."
+              }
+            },
+            "appLocation": {
+              "type": "string",
+              "defaultValue": "[parameters('location')]",
+              "metadata": {
+                "description": "Location for the App Service app."
+              }
             }
+          },
+          "variables": {
+            "serverFarmId": "[if(empty(parameters('existingAppServicePlanResourceId')), resourceId('Microsoft.Web/serverfarms', format('plan-{0}', parameters('name'))), parameters('existingAppServicePlanResourceId'))]"
           },
           "resources": [
             {
+              "condition": "[empty(parameters('existingAppServicePlanResourceId'))]",
               "type": "Microsoft.Web/serverfarms",
               "apiVersion": "2023-01-01",
               "name": "[format('plan-{0}', parameters('name'))]",
               "location": "[parameters('location')]",
               "kind": "linux",
               "sku": {
-                "name": "B1",
-                "tier": "Basic"
+                "name": "[parameters('appServicePlanSkuName')]",
+                "tier": "[parameters('appServicePlanSkuTier')]"
               },
               "properties": {
                 "reserved": true
@@ -973,18 +1118,18 @@
               "type": "Microsoft.Web/sites",
               "apiVersion": "2023-01-01",
               "name": "[parameters('name')]",
-              "location": "[parameters('location')]",
+              "location": "[parameters('appLocation')]",
               "kind": "app,linux",
               "identity": {
                 "type": "SystemAssigned"
               },
               "properties": {
-                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', format('plan-{0}', parameters('name')))]",
+                "serverFarmId": "[variables('serverFarmId')]",
                 "virtualNetworkSubnetId": "[if(parameters('enableVnetIntegration'), parameters('vnetSubnetId'), null())]",
                 "httpsOnly": true,
                 "siteConfig": {
                   "linuxFxVersion": "DOTNETCORE|8.0",
-                  "alwaysOn": true,
+                  "alwaysOn": "[not(equals(toLower(parameters('appServicePlanSkuTier')), 'free'))]",
                   "ftpsState": "Disabled",
                   "minTlsVersion": "1.2",
                   "http20Enabled": true,
@@ -1004,6 +1149,18 @@
                     {
                       "name": "AzureSearch__Index",
                       "value": "[parameters('searchIndex')]"
+                    },
+                    {
+                      "name": "AzureOpenAI__Endpoint",
+                      "value": "[parameters('openAiEndpoint')]"
+                    },
+                    {
+                      "name": "AzureOpenAI__Deployment",
+                      "value": "[parameters('openAiDeployment')]"
+                    },
+                    {
+                      "name": "AzureOpenAI__EmbeddingDeployment",
+                      "value": "[parameters('openAiEmbeddingDeployment')]"
                     }
                   ]
                 }
@@ -1072,6 +1229,7 @@
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
         "[resourceId('Microsoft.Resources/deployments', 'networking')]",
+        "[resourceId('Microsoft.Resources/deployments', 'openai')]",
         "[resourceId('Microsoft.Resources/deployments', 'search')]"
       ]
     },
@@ -1220,7 +1378,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "115248304463382959"
+              "templateHash": "2921155539443815163"
             }
           },
           "parameters": {
@@ -1236,7 +1394,17 @@
               "metadata": {
                 "description": "Email addresses to receive budget alert notifications."
               }
+            },
+            "startDate": {
+              "type": "string",
+              "defaultValue": "[utcNow('yyyy-MM-01')]",
+              "metadata": {
+                "description": "Monthly budget start date (YYYY-MM-DD)."
+              }
             }
+          },
+          "variables": {
+            "budgetNotifications": "[if(greater(length(parameters('contactEmails')), 0), createObject('actualGreaterThan80Percent', createObject('enabled', true(), 'operator', 'GreaterThan', 'threshold', 80, 'contactEmails', parameters('contactEmails'), 'thresholdType', 'Actual')), createObject())]"
           },
           "resources": [
             {
@@ -1248,17 +1416,9 @@
                 "amount": "[parameters('amount')]",
                 "timeGrain": "Monthly",
                 "timePeriod": {
-                  "startDate": "2025-01-01"
+                  "startDate": "[parameters('startDate')]"
                 },
-                "notifications": {
-                  "actualGreaterThan80Percent": {
-                    "enabled": true,
-                    "operator": "GreaterThan",
-                    "threshold": 80,
-                    "contactEmails": "[parameters('contactEmails')]",
-                    "thresholdType": "Actual"
-                  }
-                }
+                "notifications": "[variables('budgetNotifications')]"
               }
             }
           ]
