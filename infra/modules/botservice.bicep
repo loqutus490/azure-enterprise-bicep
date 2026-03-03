@@ -1,5 +1,4 @@
 param name string
-param location string
 param appServiceUrl string
 param entraAppId string
 

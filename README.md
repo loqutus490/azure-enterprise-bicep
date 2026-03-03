@@ -264,3 +264,4 @@ Configure these repository/environment variables in GitHub:
 | `entraClientId` | Entra app client ID (enables auth) | `''` (disabled) |
 | `botEntraAppId` | Bot app client ID (enables Teams bot) | `''` (disabled) |
 | `enableNetworking` | VNet + private endpoints | `true` in prod |
+| `deployRoleAssignments` | Create OpenAI/Search RBAC assignments from IaC (requires `Microsoft.Authorization/roleAssignments/write`) | `true` |
