@@ -13,6 +13,7 @@ on:
 permissions:
   id-token: write
   contents: read
+  actions: read
 
 jobs:
   deploy-dev:
@@ -43,7 +44,7 @@ jobs:
         run: |
           az bicep build --file infra/main.bicep
 
-      - name: Deploy to Azure
+      - name: Deploy Infrastructure
         run: |
           az group create \
             --name rg-legal-${{ env.ENVIRONMENT }} \
@@ -55,17 +56,54 @@ jobs:
             --template-file infra/main.bicep \
             --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam
 
+      - name: Download Backend Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-publish-${{ github.event.workflow_run.head_sha }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./artifacts/backend
+
+      - name: Resolve Web App
+        id: resolve_app
+        run: |
+          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
+          WEBAPP_NAME="$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
+          if [[ -z "$WEBAPP_NAME" ]]; then
+            echo "No Web App found in resource group '$RESOURCE_GROUP'."
+            exit 1
+          fi
+          echo "name=$WEBAPP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Backend Artifact
+        run: |
+          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
+          WEBAPP_NAME="${{ steps.resolve_app.outputs.name }}"
+          ARTIFACT_PATH="./artifacts/backend/backend-publish.zip"
+
+          if [[ ! -f "$ARTIFACT_PATH" ]]; then
+            echo "Backend artifact not found at $ARTIFACT_PATH"
+            exit 1
+          fi
+
+          az webapp deploy \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEBAPP_NAME" \
+            --src-path "$ARTIFACT_PATH" \
+            --type zip \
+            --output none
+
+          az webapp restart \
+            --name "$WEBAPP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --output none
+
       - name: Validate Deployment Health
         run: |
           set -euo pipefail
 
           RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
-          WEBAPP_NAME="$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
-
-          if [[ -z "$WEBAPP_NAME" ]]; then
-            echo "No Web App found in resource group '$RESOURCE_GROUP'."
-            exit 1
-          fi
+          WEBAPP_NAME="${{ steps.resolve_app.outputs.name }}"
 
           echo "Validating Web App resource: $WEBAPP_NAME"
           az webapp show --name "$WEBAPP_NAME" --resource-group "$RESOURCE_GROUP" --query "{name:name,state:state,host:defaultHostName}" -o table
@@ -117,7 +155,7 @@ jobs:
         run: |
           az bicep build --file infra/main.bicep
 
-      - name: Deploy to Azure
+      - name: Deploy Infrastructure
         run: |
           az group create \
             --name rg-legal-${{ env.ENVIRONMENT }} \
@@ -129,17 +167,54 @@ jobs:
             --template-file infra/main.bicep \
             --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam
 
+      - name: Download Backend Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-publish-${{ github.event.workflow_run.head_sha }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./artifacts/backend
+
+      - name: Resolve Web App
+        id: resolve_app
+        run: |
+          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
+          WEBAPP_NAME="$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
+          if [[ -z "$WEBAPP_NAME" ]]; then
+            echo "No Web App found in resource group '$RESOURCE_GROUP'."
+            exit 1
+          fi
+          echo "name=$WEBAPP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Backend Artifact
+        run: |
+          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
+          WEBAPP_NAME="${{ steps.resolve_app.outputs.name }}"
+          ARTIFACT_PATH="./artifacts/backend/backend-publish.zip"
+
+          if [[ ! -f "$ARTIFACT_PATH" ]]; then
+            echo "Backend artifact not found at $ARTIFACT_PATH"
+            exit 1
+          fi
+
+          az webapp deploy \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEBAPP_NAME" \
+            --src-path "$ARTIFACT_PATH" \
+            --type zip \
+            --output none
+
+          az webapp restart \
+            --name "$WEBAPP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --output none
+
       - name: Validate Deployment Health
         run: |
           set -euo pipefail
 
           RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
-          WEBAPP_NAME="$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
-
-          if [[ -z "$WEBAPP_NAME" ]]; then
-            echo "No Web App found in resource group '$RESOURCE_GROUP'."
-            exit 1
-          fi
+          WEBAPP_NAME="${{ steps.resolve_app.outputs.name }}"
 
           echo "Validating Web App resource: $WEBAPP_NAME"
           az webapp show --name "$WEBAPP_NAME" --resource-group "$RESOURCE_GROUP" --query "{name:name,state:state,host:defaultHostName}" -o table
