@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "11767035213936789137"
+      "templateHash": "10734739079146343773"
     }
   },
   "parameters": {
@@ -1013,7 +1013,8 @@
           },
           "appLocation": {
             "value": "[parameters('appLocation')]"
-          }
+          },
+          "unauthenticatedClientAction": "[if(equals(parameters('environment'), 'dev'), createObject('value', 'RedirectToLoginPage'), createObject('value', 'Return401'))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -1022,7 +1023,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "4212847970938141169"
+              "templateHash": "11155607634202593741"
             }
           },
           "parameters": {
@@ -1101,6 +1102,17 @@
               "defaultValue": "[parameters('location')]",
               "metadata": {
                 "description": "Location for the App Service app."
+              }
+            },
+            "unauthenticatedClientAction": {
+              "type": "string",
+              "defaultValue": "Return401",
+              "allowedValues": [
+                "Return401",
+                "RedirectToLoginPage"
+              ],
+              "metadata": {
+                "description": "EasyAuth behavior for unauthenticated clients."
               }
             }
           },
@@ -1186,7 +1198,7 @@
               "properties": {
                 "globalValidation": {
                   "requireAuthentication": true,
-                  "unauthenticatedClientAction": "Return401"
+                  "unauthenticatedClientAction": "[parameters('unauthenticatedClientAction')]"
                 },
                 "identityProviders": {
                   "azureActiveDirectory": {
