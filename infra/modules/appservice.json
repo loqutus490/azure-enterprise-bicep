@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "4212847970938141169"
+      "templateHash": "7655880200124215274"
     }
   },
   "parameters": {
@@ -85,6 +85,45 @@
       "metadata": {
         "description": "Location for the App Service app."
       }
+    },
+    "unauthenticatedClientAction": {
+      "type": "string",
+      "defaultValue": "Return401",
+      "allowedValues": [
+        "Return401",
+        "RedirectToLoginPage"
+      ],
+      "metadata": {
+        "description": "EasyAuth behavior for unauthenticated clients."
+      }
+    },
+    "aspNetCoreEnvironment": {
+      "type": "string",
+      "defaultValue": "Production",
+      "metadata": {
+        "description": "ASP.NET Core environment value (Development/Production)."
+      }
+    },
+    "requiredScope": {
+      "type": "string",
+      "defaultValue": "user_impersonation",
+      "metadata": {
+        "description": "Required delegated scope for API access."
+      }
+    },
+    "bypassAuthInDevelopment": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Allow bypassing API authorization checks in Development only."
+      }
+    },
+    "bypassMatterAuthorizationInDevelopment": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Allow bypassing matter-level claim checks in Development only."
+      }
     }
   },
   "variables": {
@@ -153,6 +192,38 @@
             {
               "name": "AzureOpenAI__EmbeddingDeployment",
               "value": "[parameters('openAiEmbeddingDeployment')]"
+            },
+            {
+              "name": "ASPNETCORE_ENVIRONMENT",
+              "value": "[parameters('aspNetCoreEnvironment')]"
+            },
+            {
+              "name": "AzureAd__Instance",
+              "value": "[environment().authentication.loginEndpoint]"
+            },
+            {
+              "name": "AzureAd__TenantId",
+              "value": "[subscription().tenantId]"
+            },
+            {
+              "name": "AzureAd__ClientId",
+              "value": "[parameters('entraClientId')]"
+            },
+            {
+              "name": "AzureAd__Audience",
+              "value": "[parameters('entraClientId')]"
+            },
+            {
+              "name": "Authorization__RequiredScope",
+              "value": "[parameters('requiredScope')]"
+            },
+            {
+              "name": "Authorization__BypassAuthInDevelopment",
+              "value": "[string(parameters('bypassAuthInDevelopment'))]"
+            },
+            {
+              "name": "Authorization__BypassMatterAuthorizationInDevelopment",
+              "value": "[string(parameters('bypassMatterAuthorizationInDevelopment'))]"
             }
           ]
         }
@@ -169,22 +240,21 @@
       "properties": {
         "globalValidation": {
           "requireAuthentication": true,
-          "unauthenticatedClientAction": "Return401"
+          "unauthenticatedClientAction": "[parameters('unauthenticatedClientAction')]"
         },
         "identityProviders": {
           "azureActiveDirectory": {
             "enabled": true,
             "registration": {
               "clientId": "[parameters('entraClientId')]",
-              "openIdIssuer": "[format('https://sts.windows.net/{0}/v2.0', subscription().tenantId)]"
+              "openIdIssuer": "[format('{0}{1}/v2.0', environment().authentication.loginEndpoint, subscription().tenantId)]"
             },
             "validation": {
               "allowedAudiences": [
+                "[parameters('entraClientId')]",
                 "[format('api://{0}', parameters('entraClientId'))]"
               ],
-              "jwtClaimChecks": {
-                "allowedClientApplications": "[parameters('allowedClientApplications')]"
-              }
+              "jwtClaimChecks": "[if(greater(length(parameters('allowedClientApplications')), 0), createObject('allowedClientApplications', parameters('allowedClientApplications')), null())]"
             }
           }
         },

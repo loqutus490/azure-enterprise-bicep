@@ -19,6 +19,11 @@ resource search 'Microsoft.Search/searchServices@2023-11-01' = {
     hostingMode: 'default'
     publicNetworkAccess: enablePrivateEndpoint ? 'disabled' : 'enabled'
     semanticSearch: 'free'
+    authOptions: {
+      aadOrApiKey: {
+        aadAuthFailureMode: 'http401WithBearerChallenge'
+      }
+    }
   }
 }
 
