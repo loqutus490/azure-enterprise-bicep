@@ -132,12 +132,16 @@ module app './modules/appservice.bicep' = {
     searchIndex: searchIndexName
     openAiEndpoint: openai.outputs.endpoint
     openAiDeployment: openai.outputs.chatDeploymentName
-    openAiEmbeddingDeployment: openai.outputs.embeddingDeploymentName
+    openAiEmbeddingDeployment: environment == 'dev' ? 'text-embedding-3-small' : openai.outputs.embeddingDeploymentName
     appServicePlanSkuName: appServicePlanSkuName
     appServicePlanSkuTier: appServicePlanSkuTier
     existingAppServicePlanResourceId: existingAppServicePlanResourceId
     appLocation: appLocation
     unauthenticatedClientAction: environment == 'dev' ? 'RedirectToLoginPage' : 'Return401'
+    aspNetCoreEnvironment: environment == 'dev' ? 'Development' : 'Production'
+    requiredScope: 'user_impersonation'
+    bypassAuthInDevelopment: false
+    bypassMatterAuthorizationInDevelopment: environment == 'dev'
   }
 }
 

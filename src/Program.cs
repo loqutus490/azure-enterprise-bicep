@@ -51,7 +51,8 @@ builder.Services.AddAuthorization(options =>
         {
             var user = context.User;
             var appId = user.FindFirst("azp")?.Value ?? user.FindFirst("appid")?.Value;
-            var scopeClaim = user.FindFirst("scp")?.Value;
+            var scopeClaim = user.FindFirst("scp")?.Value
+                ?? user.FindFirst("http://schemas.microsoft.com/identity/claims/scope")?.Value;
 
             if (!string.IsNullOrWhiteSpace(scopeClaim))
             {

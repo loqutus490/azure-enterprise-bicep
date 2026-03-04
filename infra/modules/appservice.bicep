@@ -25,6 +25,14 @@ param appLocation string = location
   'RedirectToLoginPage'
 ])
 param unauthenticatedClientAction string = 'Return401'
+@description('ASP.NET Core environment value (Development/Production).')
+param aspNetCoreEnvironment string = 'Production'
+@description('Required delegated scope for API access.')
+param requiredScope string = 'user_impersonation'
+@description('Allow bypassing API authorization checks in Development only.')
+param bypassAuthInDevelopment bool = false
+@description('Allow bypassing matter-level claim checks in Development only.')
+param bypassMatterAuthorizationInDevelopment bool = true
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = if (empty(existingAppServicePlanResourceId)) {
   name: 'plan-${name}'
@@ -87,6 +95,38 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
           name: 'AzureOpenAI__EmbeddingDeployment'
           value: openAiEmbeddingDeployment
         }
+        {
+          name: 'ASPNETCORE_ENVIRONMENT'
+          value: aspNetCoreEnvironment
+        }
+        {
+          name: 'AzureAd__Instance'
+          value: environment().authentication.loginEndpoint
+        }
+        {
+          name: 'AzureAd__TenantId'
+          value: subscription().tenantId
+        }
+        {
+          name: 'AzureAd__ClientId'
+          value: entraClientId
+        }
+        {
+          name: 'AzureAd__Audience'
+          value: entraClientId
+        }
+        {
+          name: 'Authorization__RequiredScope'
+          value: requiredScope
+        }
+        {
+          name: 'Authorization__BypassAuthInDevelopment'
+          value: string(bypassAuthInDevelopment)
+        }
+        {
+          name: 'Authorization__BypassMatterAuthorizationInDevelopment'
+          value: string(bypassMatterAuthorizationInDevelopment)
+        }
       ]
     }
   }
@@ -106,16 +146,16 @@ resource authSettings 'Microsoft.Web/sites/config@2023-01-01' = if (enableAuth) 
         enabled: true
         registration: {
           clientId: entraClientId
-          openIdIssuer: 'https://sts.windows.net/${subscription().tenantId}/v2.0'
+          openIdIssuer: '${environment().authentication.loginEndpoint}${subscription().tenantId}/v2.0'
         }
         validation: {
           allowedAudiences: [
             entraClientId
             'api://${entraClientId}'
           ]
-          jwtClaimChecks: {
+          jwtClaimChecks: length(allowedClientApplications) > 0 ? {
             allowedClientApplications: allowedClientApplications
-          }
+          } : null
         }
       }
     }
