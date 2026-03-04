@@ -51,6 +51,7 @@ var uniqueSuffix = toLower(substring(uniqueString(resourceGroup().id, environmen
 var searchServiceName = useUniqueNames ? '${namePrefix}-search-${environment}-${uniqueSuffix}' : '${namePrefix}-search-${environment}'
 var openAiAccountName = useUniqueNames ? '${namePrefix}-openai-${environment}-${uniqueSuffix}' : '${namePrefix}-openai-${environment}'
 var keyVaultName = useUniqueNames ? '${namePrefix}-kv-${environment}-${uniqueSuffix}' : '${namePrefix}-kv-${environment}'
+var appServiceName = useUniqueNames ? '${namePrefix}-app-${environment}-${uniqueSuffix}' : '${namePrefix}-app-${environment}'
 
 // =============================================
 // Networking (VNet, NSGs, Private DNS)
@@ -128,7 +129,7 @@ module monitoring './modules/monitoring.bicep' = {
 module app './modules/appservice.bicep' = {
   name: 'app'
   params: {
-    name: '${namePrefix}-app-${environment}'
+    name: appServiceName
     location: location
     appInsightsKey: monitoring.outputs.instrumentationKey
     entraClientId: entraClientId
@@ -163,7 +164,7 @@ resource searchService 'Microsoft.Search/searchServices@2023-11-01' existing = {
 
 var openAiUserRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
 var searchIndexDataReaderRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/1407120a-92aa-4202-b7e9-c0e197c71c8f'
-var appResourceName = '${namePrefix}-app-${environment}'
+var appResourceName = appServiceName
 
 resource openAiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployRoleAssignments) {
   name: guid(openaiAccount.id, appResourceName, openAiUserRoleDefinitionId)
