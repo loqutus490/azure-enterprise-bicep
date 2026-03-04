@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "17835218550472938544"
+      "templateHash": "295708544178127100"
     }
   },
   "parameters": {
@@ -107,9 +107,20 @@
       "metadata": {
         "description": "Deploy RBAC role assignments for the app managed identity (requires roleAssignments/write permissions)."
       }
+    },
+    "useUniqueNames": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Append a deterministic unique suffix to globally unique resource names (Search/OpenAI) to avoid naming collisions."
+      }
     }
   },
   "variables": {
+    "uniqueSuffix": "[toLower(substring(uniqueString(resourceGroup().id, parameters('environment')), 0, 6))]",
+    "searchServiceName": "[if(parameters('useUniqueNames'), format('{0}-search-{1}-{2}', parameters('namePrefix'), parameters('environment'), variables('uniqueSuffix')), format('{0}-search-{1}', parameters('namePrefix'), parameters('environment')))]",
+    "openAiAccountName": "[if(parameters('useUniqueNames'), format('{0}-openai-{1}-{2}', parameters('namePrefix'), parameters('environment'), variables('uniqueSuffix')), format('{0}-openai-{1}', parameters('namePrefix'), parameters('environment')))]",
+    "keyVaultName": "[if(parameters('useUniqueNames'), format('{0}-kv-{1}-{2}', parameters('namePrefix'), parameters('environment'), variables('uniqueSuffix')), format('{0}-kv-{1}', parameters('namePrefix'), parameters('environment')))]",
     "openAiUserRoleDefinitionId": "[format('/subscriptions/{0}/providers/Microsoft.Authorization/roleDefinitions/5e0bd9bd-7b93-4f28-af87-19fc36ad61bd', subscription().subscriptionId)]",
     "searchIndexDataReaderRoleDefinitionId": "[format('/subscriptions/{0}/providers/Microsoft.Authorization/roleDefinitions/1407120a-92aa-4202-b7e9-c0e197c71c8f', subscription().subscriptionId)]",
     "appResourceName": "[format('{0}-app-{1}', parameters('namePrefix'), parameters('environment'))]"
@@ -119,8 +130,8 @@
       "condition": "[parameters('deployRoleAssignments')]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-openai-{1}', parameters('namePrefix'), parameters('environment')))]",
-      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-openai-{1}', parameters('namePrefix'), parameters('environment'))), variables('appResourceName'), variables('openAiUserRoleDefinitionId'))]",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', variables('openAiAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', variables('openAiAccountName')), variables('appResourceName'), variables('openAiUserRoleDefinitionId'))]",
       "properties": {
         "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'app'), '2025-04-01').outputs.appServicePrincipalId.value]",
         "roleDefinitionId": "[variables('openAiUserRoleDefinitionId')]",
@@ -134,8 +145,8 @@
       "condition": "[parameters('deployRoleAssignments')]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "scope": "[resourceId('Microsoft.Search/searchServices', format('{0}-search-{1}', parameters('namePrefix'), parameters('environment')))]",
-      "name": "[guid(resourceId('Microsoft.Search/searchServices', format('{0}-search-{1}', parameters('namePrefix'), parameters('environment'))), variables('appResourceName'), variables('searchIndexDataReaderRoleDefinitionId'))]",
+      "scope": "[resourceId('Microsoft.Search/searchServices', variables('searchServiceName'))]",
+      "name": "[guid(resourceId('Microsoft.Search/searchServices', variables('searchServiceName')), variables('appResourceName'), variables('searchIndexDataReaderRoleDefinitionId'))]",
       "properties": {
         "principalId": "[reference(resourceId('Microsoft.Resources/deployments', 'app'), '2025-04-01').outputs.appServicePrincipalId.value]",
         "roleDefinitionId": "[variables('searchIndexDataReaderRoleDefinitionId')]",
@@ -499,7 +510,7 @@
         "mode": "Incremental",
         "parameters": {
           "name": {
-            "value": "[format('{0}-search-{1}', parameters('namePrefix'), parameters('environment'))]"
+            "value": "[variables('searchServiceName')]"
           },
           "location": {
             "value": "[parameters('location')]"
@@ -646,7 +657,7 @@
         "mode": "Incremental",
         "parameters": {
           "name": {
-            "value": "[format('{0}-openai-{1}', parameters('namePrefix'), parameters('environment'))]"
+            "value": "[variables('openAiAccountName')]"
           },
           "location": {
             "value": "[parameters('location')]"
@@ -830,7 +841,7 @@
         "mode": "Incremental",
         "parameters": {
           "name": {
-            "value": "[format('{0}-kv-{1}', parameters('namePrefix'), parameters('environment'))]"
+            "value": "[variables('keyVaultName')]"
           },
           "location": {
             "value": "[parameters('location')]"

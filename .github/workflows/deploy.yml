@@ -65,6 +65,8 @@ jobs:
 
           RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
           DEPLOYMENT_NAME="infra-${{ env.ENVIRONMENT }}-${{ github.run_id }}"
+          echo "resource_group=$RESOURCE_GROUP" >> "$GITHUB_OUTPUT"
+          echo "deployment_name=$DEPLOYMENT_NAME" >> "$GITHUB_OUTPUT"
 
           az group create \
             --name "$RESOURCE_GROUP" \
@@ -77,6 +79,7 @@ jobs:
             --template-file infra/main.bicep \
             --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam \
             --parameters deployRoleAssignments=false \
+            --parameters useUniqueNames=true \
             --output none
 
           deployment_output="$(az deployment group show \
@@ -105,6 +108,25 @@ jobs:
           fi
 
           echo "app_url=$deployment_output" >> "$GITHUB_OUTPUT"
+
+      - name: Output Deployment Errors
+        if: failure()
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="${{ steps.deploy_infra.outputs.resource_group }}"
+          DEPLOYMENT_NAME="${{ steps.deploy_infra.outputs.deployment_name }}"
+          echo "Deployment error payload:"
+          az deployment group show \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.error" \
+            -o json || true
+          echo "Failed deployment operations:"
+          az deployment operation group list \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,resourceType:properties.targetResource.resourceType,code:properties.statusMessage.error.code,message:properties.statusMessage.error.message}" \
+            -o table || true
 
       - name: Download Backend Artifact
         uses: actions/download-artifact@v4
@@ -228,6 +250,8 @@ jobs:
 
           RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
           DEPLOYMENT_NAME="infra-${{ env.ENVIRONMENT }}-${{ github.run_id }}"
+          echo "resource_group=$RESOURCE_GROUP" >> "$GITHUB_OUTPUT"
+          echo "deployment_name=$DEPLOYMENT_NAME" >> "$GITHUB_OUTPUT"
 
           az group create \
             --name "$RESOURCE_GROUP" \
@@ -240,6 +264,7 @@ jobs:
             --template-file infra/main.bicep \
             --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam \
             --parameters deployRoleAssignments=false \
+            --parameters useUniqueNames=true \
             --output none
 
           deployment_output="$(az deployment group show \
@@ -268,6 +293,25 @@ jobs:
           fi
 
           echo "app_url=$deployment_output" >> "$GITHUB_OUTPUT"
+
+      - name: Output Deployment Errors
+        if: failure()
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="${{ steps.deploy_infra.outputs.resource_group }}"
+          DEPLOYMENT_NAME="${{ steps.deploy_infra.outputs.deployment_name }}"
+          echo "Deployment error payload:"
+          az deployment group show \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.error" \
+            -o json || true
+          echo "Failed deployment operations:"
+          az deployment operation group list \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,resourceType:properties.targetResource.resourceType,code:properties.statusMessage.error.code,message:properties.statusMessage.error.message}" \
+            -o table || true
 
       - name: Download Backend Artifact
         uses: actions/download-artifact@v4

@@ -44,6 +44,14 @@ param enableNetworking bool = environment == 'prod'
 @description('Deploy RBAC role assignments for the app managed identity (requires roleAssignments/write permissions).')
 param deployRoleAssignments bool = true
 
+@description('Append a deterministic unique suffix to globally unique resource names (Search/OpenAI) to avoid naming collisions.')
+param useUniqueNames bool = false
+
+var uniqueSuffix = toLower(substring(uniqueString(resourceGroup().id, environment), 0, 6))
+var searchServiceName = useUniqueNames ? '${namePrefix}-search-${environment}-${uniqueSuffix}' : '${namePrefix}-search-${environment}'
+var openAiAccountName = useUniqueNames ? '${namePrefix}-openai-${environment}-${uniqueSuffix}' : '${namePrefix}-openai-${environment}'
+var keyVaultName = useUniqueNames ? '${namePrefix}-kv-${environment}-${uniqueSuffix}' : '${namePrefix}-kv-${environment}'
+
 // =============================================
 // Networking (VNet, NSGs, Private DNS)
 // =============================================
@@ -69,7 +77,7 @@ module storage './modules/storage.bicep' = {
 module search './modules/search.bicep' = {
   name: 'search'
   params: {
-    name: '${namePrefix}-search-${environment}'
+    name: searchServiceName
     location: location
     enablePrivateEndpoint: enableNetworking
     privateEndpointSubnetId: enableNetworking ? (networking.?outputs.?peSubnetId ?? '') : ''
@@ -83,7 +91,7 @@ module search './modules/search.bicep' = {
 module openai './modules/openai.bicep' = {
   name: 'openai'
   params: {
-    name: '${namePrefix}-openai-${environment}'
+    name: openAiAccountName
     location: location
     deployModelDeployments: deployOpenAiModels
     enablePrivateEndpoint: enableNetworking
@@ -98,7 +106,7 @@ module openai './modules/openai.bicep' = {
 module keyvault './modules/keyvault.bicep' = {
   name: 'keyvault'
   params: {
-    name: '${namePrefix}-kv-${environment}'
+    name: keyVaultName
     location: location
   }
 }
@@ -146,11 +154,11 @@ module app './modules/appservice.bicep' = {
 }
 
 resource openaiAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
-  name: '${namePrefix}-openai-${environment}'
+  name: openAiAccountName
 }
 
 resource searchService 'Microsoft.Search/searchServices@2023-11-01' existing = {
-  name: '${namePrefix}-search-${environment}'
+  name: searchServiceName
 }
 
 var openAiUserRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
