@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "11767035213936789137"
+      "templateHash": "17835218550472938544"
     }
   },
   "parameters": {
@@ -517,7 +517,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "4354851456932075821"
+              "templateHash": "18303708485446681338"
             }
           },
           "parameters": {
@@ -557,7 +557,12 @@
                 "partitionCount": 1,
                 "hostingMode": "default",
                 "publicNetworkAccess": "[if(parameters('enablePrivateEndpoint'), 'disabled', 'enabled')]",
-                "semanticSearch": "free"
+                "semanticSearch": "free",
+                "authOptions": {
+                  "aadOrApiKey": {
+                    "aadAuthFailureMode": "http401WithBearerChallenge"
+                  }
+                }
               }
             },
             {
@@ -999,9 +1004,7 @@
           "openAiDeployment": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.chatDeploymentName.value]"
           },
-          "openAiEmbeddingDeployment": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.embeddingDeploymentName.value]"
-          },
+          "openAiEmbeddingDeployment": "[if(equals(parameters('environment'), 'dev'), createObject('value', 'text-embedding-3-small'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.embeddingDeploymentName.value))]",
           "appServicePlanSkuName": {
             "value": "[parameters('appServicePlanSkuName')]"
           },
@@ -1013,6 +1016,17 @@
           },
           "appLocation": {
             "value": "[parameters('appLocation')]"
+          },
+          "unauthenticatedClientAction": "[if(equals(parameters('environment'), 'dev'), createObject('value', 'RedirectToLoginPage'), createObject('value', 'Return401'))]",
+          "aspNetCoreEnvironment": "[if(equals(parameters('environment'), 'dev'), createObject('value', 'Development'), createObject('value', 'Production'))]",
+          "requiredScope": {
+            "value": "user_impersonation"
+          },
+          "bypassAuthInDevelopment": {
+            "value": false
+          },
+          "bypassMatterAuthorizationInDevelopment": {
+            "value": "[equals(parameters('environment'), 'dev')]"
           }
         },
         "template": {
@@ -1022,7 +1036,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "4212847970938141169"
+              "templateHash": "7655880200124215274"
             }
           },
           "parameters": {
@@ -1102,6 +1116,45 @@
               "metadata": {
                 "description": "Location for the App Service app."
               }
+            },
+            "unauthenticatedClientAction": {
+              "type": "string",
+              "defaultValue": "Return401",
+              "allowedValues": [
+                "Return401",
+                "RedirectToLoginPage"
+              ],
+              "metadata": {
+                "description": "EasyAuth behavior for unauthenticated clients."
+              }
+            },
+            "aspNetCoreEnvironment": {
+              "type": "string",
+              "defaultValue": "Production",
+              "metadata": {
+                "description": "ASP.NET Core environment value (Development/Production)."
+              }
+            },
+            "requiredScope": {
+              "type": "string",
+              "defaultValue": "user_impersonation",
+              "metadata": {
+                "description": "Required delegated scope for API access."
+              }
+            },
+            "bypassAuthInDevelopment": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Allow bypassing API authorization checks in Development only."
+              }
+            },
+            "bypassMatterAuthorizationInDevelopment": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow bypassing matter-level claim checks in Development only."
+              }
             }
           },
           "variables": {
@@ -1170,6 +1223,38 @@
                     {
                       "name": "AzureOpenAI__EmbeddingDeployment",
                       "value": "[parameters('openAiEmbeddingDeployment')]"
+                    },
+                    {
+                      "name": "ASPNETCORE_ENVIRONMENT",
+                      "value": "[parameters('aspNetCoreEnvironment')]"
+                    },
+                    {
+                      "name": "AzureAd__Instance",
+                      "value": "[environment().authentication.loginEndpoint]"
+                    },
+                    {
+                      "name": "AzureAd__TenantId",
+                      "value": "[subscription().tenantId]"
+                    },
+                    {
+                      "name": "AzureAd__ClientId",
+                      "value": "[parameters('entraClientId')]"
+                    },
+                    {
+                      "name": "AzureAd__Audience",
+                      "value": "[parameters('entraClientId')]"
+                    },
+                    {
+                      "name": "Authorization__RequiredScope",
+                      "value": "[parameters('requiredScope')]"
+                    },
+                    {
+                      "name": "Authorization__BypassAuthInDevelopment",
+                      "value": "[string(parameters('bypassAuthInDevelopment'))]"
+                    },
+                    {
+                      "name": "Authorization__BypassMatterAuthorizationInDevelopment",
+                      "value": "[string(parameters('bypassMatterAuthorizationInDevelopment'))]"
                     }
                   ]
                 }
@@ -1186,22 +1271,21 @@
               "properties": {
                 "globalValidation": {
                   "requireAuthentication": true,
-                  "unauthenticatedClientAction": "Return401"
+                  "unauthenticatedClientAction": "[parameters('unauthenticatedClientAction')]"
                 },
                 "identityProviders": {
                   "azureActiveDirectory": {
                     "enabled": true,
                     "registration": {
                       "clientId": "[parameters('entraClientId')]",
-                      "openIdIssuer": "[format('https://sts.windows.net/{0}/v2.0', subscription().tenantId)]"
+                      "openIdIssuer": "[format('{0}{1}/v2.0', environment().authentication.loginEndpoint, subscription().tenantId)]"
                     },
                     "validation": {
                       "allowedAudiences": [
+                        "[parameters('entraClientId')]",
                         "[format('api://{0}', parameters('entraClientId'))]"
                       ],
-                      "jwtClaimChecks": {
-                        "allowedClientApplications": "[parameters('allowedClientApplications')]"
-                      }
+                      "jwtClaimChecks": "[if(greater(length(parameters('allowedClientApplications')), 0), createObject('allowedClientApplications', parameters('allowedClientApplications')), null())]"
                     }
                   }
                 },

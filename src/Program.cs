@@ -2,6 +2,7 @@ using Azure.Identity;
 using Azure.AI.OpenAI;
 using Azure.Search.Documents;
 using Azure.Search.Documents.Models;
+using Azure;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -50,7 +51,8 @@ builder.Services.AddAuthorization(options =>
         {
             var user = context.User;
             var appId = user.FindFirst("azp")?.Value ?? user.FindFirst("appid")?.Value;
-            var scopeClaim = user.FindFirst("scp")?.Value;
+            var scopeClaim = user.FindFirst("scp")?.Value
+                ?? user.FindFirst("http://schemas.microsoft.com/identity/claims/scope")?.Value;
 
             if (!string.IsNullOrWhiteSpace(scopeClaim))
             {
@@ -121,6 +123,7 @@ var chatDeploymentName = builder.Configuration["AzureOpenAI:Deployment"];
 var embeddingDeploymentName = builder.Configuration["AzureOpenAI:EmbeddingDeployment"];
 var searchEndpointValue = builder.Configuration["AzureSearch:Endpoint"];
 var searchIndexName = builder.Configuration["AzureSearch:Index"];
+var searchApiKey = builder.Configuration["AzureSearch:ApiKey"];
 var maxContextCharacters = builder.Configuration.GetValue<int?>("Rag:MaxContextCharacters") ?? 12000;
 
 if (string.IsNullOrWhiteSpace(openAiEndpointValue))
@@ -144,7 +147,9 @@ AzureOpenAIClient openAiClient = new AzureOpenAIClient(openAiEndpoint, credentia
 
 // Azure Search
 var searchEndpoint = new Uri(searchEndpointValue);
-SearchClient searchClient = new SearchClient(searchEndpoint, searchIndexName, credential);
+SearchClient searchClient = string.IsNullOrWhiteSpace(searchApiKey)
+    ? new SearchClient(searchEndpoint, searchIndexName, credential)
+    : new SearchClient(searchEndpoint, searchIndexName, new AzureKeyCredential(searchApiKey));
 
 // Public health endpoint
 app.MapGet("/ping", () => "pong");
@@ -332,6 +337,11 @@ Rules:
     catch (Exception ex)
     {
         logger.LogError(ex, "AskRequest failed. QuestionLength={QuestionLength} DurationMs={DurationMs}", question.Length, stopwatch.ElapsedMilliseconds);
+        if (app.Environment.IsDevelopment())
+        {
+            return Results.Problem($"Unable to process request at this time. {ex.GetType().Name}: {ex.Message}");
+        }
+
         return Results.Problem("Unable to process request at this time.");
     }
 });
@@ -382,7 +392,7 @@ static IEnumerable<string> ParseMatterIds(string rawValue)
     }
 
     return trimmed
-        .Split([',', ';', '|', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        .Split(new[] { ',', ';', '|', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }
 
 public record AskRequest(
