@@ -50,6 +50,7 @@ param useUniqueNames bool = false
 var uniqueSuffix = toLower(substring(uniqueString(resourceGroup().id, environment), 0, 6))
 var searchServiceName = useUniqueNames ? '${namePrefix}-search-${environment}-${uniqueSuffix}' : '${namePrefix}-search-${environment}'
 var openAiAccountName = useUniqueNames ? '${namePrefix}-openai-${environment}-${uniqueSuffix}' : '${namePrefix}-openai-${environment}'
+var keyVaultName = useUniqueNames ? '${namePrefix}-kv-${environment}-${uniqueSuffix}' : '${namePrefix}-kv-${environment}'
 
 // =============================================
 // Networking (VNet, NSGs, Private DNS)
@@ -105,7 +106,7 @@ module openai './modules/openai.bicep' = {
 module keyvault './modules/keyvault.bicep' = {
   name: 'keyvault'
   params: {
-    name: '${namePrefix}-kv-${environment}'
+    name: keyVaultName
     location: location
   }
 }
