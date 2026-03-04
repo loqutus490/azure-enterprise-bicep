@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "10734739079146343773"
+      "templateHash": "3481913148322787898"
     }
   },
   "parameters": {
@@ -1023,7 +1023,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "11155607634202593741"
+              "templateHash": "9036334461825295849"
             }
           },
           "parameters": {
@@ -1209,6 +1209,7 @@
                     },
                     "validation": {
                       "allowedAudiences": [
+                        "[parameters('entraClientId')]",
                         "[format('api://{0}', parameters('entraClientId'))]"
                       ],
                       "jwtClaimChecks": {
