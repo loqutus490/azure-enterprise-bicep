@@ -110,6 +110,7 @@ resource authSettings 'Microsoft.Web/sites/config@2023-01-01' = if (enableAuth) 
         }
         validation: {
           allowedAudiences: [
+            entraClientId
             'api://${entraClientId}'
           ]
           jwtClaimChecks: {
