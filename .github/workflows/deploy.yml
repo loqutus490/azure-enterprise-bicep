@@ -139,10 +139,16 @@ jobs:
       - name: Resolve Web App
         id: resolve_app
         run: |
+          set -euo pipefail
           APP_URL="${{ steps.deploy_infra.outputs.app_url }}"
-          WEBAPP_NAME="$(echo "$APP_URL" | sed -E 's#^https://([^./]+).*#\\1#')"
+          if [[ ! "$APP_URL" =~ ^https://[A-Za-z0-9-]+\.azurewebsites\.net/?$ ]]; then
+            echo "Invalid appUrl format: $APP_URL"
+            exit 1
+          fi
 
-          if [[ -z "$WEBAPP_NAME" ]]; then
+          WEBAPP_NAME="$(echo "$APP_URL" | sed -E 's#^https://([^./]+).*#\1#')"
+
+          if [[ -z "$WEBAPP_NAME" || ! "$WEBAPP_NAME" =~ ^[A-Za-z0-9-]+$ ]]; then
             echo "Unable to derive Web App name from appUrl output: $APP_URL"
             exit 1
           fi
@@ -324,10 +330,16 @@ jobs:
       - name: Resolve Web App
         id: resolve_app
         run: |
+          set -euo pipefail
           APP_URL="${{ steps.deploy_infra.outputs.app_url }}"
-          WEBAPP_NAME="$(echo "$APP_URL" | sed -E 's#^https://([^./]+).*#\\1#')"
+          if [[ ! "$APP_URL" =~ ^https://[A-Za-z0-9-]+\.azurewebsites\.net/?$ ]]; then
+            echo "Invalid appUrl format: $APP_URL"
+            exit 1
+          fi
 
-          if [[ -z "$WEBAPP_NAME" ]]; then
+          WEBAPP_NAME="$(echo "$APP_URL" | sed -E 's#^https://([^./]+).*#\1#')"
+
+          if [[ -z "$WEBAPP_NAME" || ! "$WEBAPP_NAME" =~ ^[A-Za-z0-9-]+$ ]]; then
             echo "Unable to derive Web App name from appUrl output: $APP_URL"
             exit 1
           fi
