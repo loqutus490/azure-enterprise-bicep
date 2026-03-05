@@ -135,6 +135,15 @@ pre {
   border: 1px solid #d0def6;
 }
 
+.stats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  color: #1f365a;
+  font-size: 14px;
+}
+
 .citations {
   margin-top: 12px;
   padding-top: 10px;

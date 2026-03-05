@@ -102,6 +102,8 @@ export default function App({ msalInstance }) {
         matterId: matterId.trim(),
         answer: answerText,
         sources,
+        retrievedChunkCount:
+          typeof res.data?.retrievedChunkCount === "number" ? res.data.retrievedChunkCount : 0,
         at: new Date().toLocaleTimeString()
       };
       setResponse(payload);
@@ -190,6 +192,10 @@ export default function App({ msalInstance }) {
             <p className="meta">
               Latest answer for <strong>{response.matterId}</strong> at {response.at}
             </p>
+            <div className="stats">
+              <span>Retrieved chunks: {response.retrievedChunkCount}</span>
+              <span>Source files: {response.sources.length}</span>
+            </div>
             <pre>{response.answer}</pre>
             <div className="citations">
               <p className="meta">Sources ({response.sources.length})</p>

@@ -295,7 +295,12 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext htt
                 retrievedChunkCount,
                 stopwatch.ElapsedMilliseconds);
 
-            return Results.Ok(new { answer = "No relevant documents found.", sources = Array.Empty<string>() });
+            return Results.Ok(new
+            {
+                answer = "No relevant documents found.",
+                sources = Array.Empty<string>(),
+                retrievedChunkCount
+            });
         }
 
         var messages = new List<OpenAI.Chat.ChatMessage>
@@ -333,7 +338,12 @@ Rules:
             string.Join(',', retrievedSources),
             stopwatch.ElapsedMilliseconds);
 
-        return Results.Ok(new { answer = answerText, sources = retrievedSources });
+        return Results.Ok(new
+        {
+            answer = answerText,
+            sources = retrievedSources,
+            retrievedChunkCount
+        });
     }
     catch (Exception ex)
     {
