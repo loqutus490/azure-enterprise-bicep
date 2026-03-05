@@ -128,21 +128,10 @@ jobs:
             --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,resourceType:properties.targetResource.resourceType,code:properties.statusMessage.error.code,message:properties.statusMessage.error.message}" \
             -o table || true
 
-      - name: Download Backend Artifact (Stable Name)
-        id: download_backend_stable
-        continue-on-error: true
+      - name: Download Backend Artifact
         uses: actions/download-artifact@v4
         with:
           name: backend-publish
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: ./artifacts/backend
-
-      - name: Download Backend Artifact (Legacy SHA Fallback)
-        if: ${{ steps.download_backend_stable.outcome == 'failure' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-publish-${{ github.event.workflow_run.head_sha }}
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ./artifacts/backend
@@ -330,21 +319,10 @@ jobs:
             --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,resourceType:properties.targetResource.resourceType,code:properties.statusMessage.error.code,message:properties.statusMessage.error.message}" \
             -o table || true
 
-      - name: Download Backend Artifact (Stable Name)
-        id: download_backend_stable
-        continue-on-error: true
+      - name: Download Backend Artifact
         uses: actions/download-artifact@v4
         with:
           name: backend-publish
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: ./artifacts/backend
-
-      - name: Download Backend Artifact (Legacy SHA Fallback)
-        if: ${{ steps.download_backend_stable.outcome == 'failure' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-publish-${{ github.event.workflow_run.head_sha }}
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ./artifacts/backend
