@@ -27,9 +27,10 @@ jobs:
       - name: Upload Backend Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backend-publish-${{ github.sha }}
+          name: backend-publish
           path: backend-publish.zip
           if-no-files-found: error
+          retention-days: 7
       - name: Install Frontend
         working-directory: agent13-frontend
         run: npm install
@@ -40,6 +41,7 @@ jobs:
       - name: Upload Frontend Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-dist-${{ github.sha }}
+          name: frontend-dist
           path: agent13-frontend/dist
           if-no-files-found: error
+          retention-days: 7

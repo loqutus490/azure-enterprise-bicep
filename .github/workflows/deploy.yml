@@ -131,7 +131,7 @@ jobs:
       - name: Download Backend Artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-publish-${{ github.event.workflow_run.head_sha }}
+          name: backend-publish
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ./artifacts/backend
@@ -322,7 +322,7 @@ jobs:
       - name: Download Backend Artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-publish-${{ github.event.workflow_run.head_sha }}
+          name: backend-publish
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ./artifacts/backend
