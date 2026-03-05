@@ -285,6 +285,7 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext htt
         }
 
         var context = string.Join('\n', contextParts);
+        var retrievedSources = retrievedFilenames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray();
         if (string.IsNullOrWhiteSpace(context))
         {
             logger.LogInformation("AskRequest completed with no retrieval results. QuestionLength={QuestionLength} MatterId={MatterId} SearchFilter={SearchFilter} RetrievedChunkCount={RetrievedChunkCount} DurationMs={DurationMs}",
@@ -294,7 +295,7 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext htt
                 retrievedChunkCount,
                 stopwatch.ElapsedMilliseconds);
 
-            return Results.Ok(new { answer = "No relevant documents found." });
+            return Results.Ok(new { answer = "No relevant documents found.", sources = Array.Empty<string>() });
         }
 
         var messages = new List<OpenAI.Chat.ChatMessage>
@@ -329,10 +330,10 @@ Rules:
             request.MatterId,
             searchFilter,
             retrievedChunkCount,
-            string.Join(',', retrievedFilenames),
+            string.Join(',', retrievedSources),
             stopwatch.ElapsedMilliseconds);
 
-        return Results.Ok(new { answer = answerText });
+        return Results.Ok(new { answer = answerText, sources = retrievedSources });
     }
     catch (Exception ex)
     {
