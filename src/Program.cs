@@ -121,6 +121,7 @@ var credential = new DefaultAzureCredential();
 var openAiEndpointValue = builder.Configuration["AzureOpenAI:Endpoint"];
 var chatDeploymentName = builder.Configuration["AzureOpenAI:Deployment"];
 var embeddingDeploymentName = builder.Configuration["AzureOpenAI:EmbeddingDeployment"];
+var embeddingDimensions = builder.Configuration.GetValue<int?>("AzureOpenAI:EmbeddingDimensions");
 var searchEndpointValue = builder.Configuration["AzureSearch:Endpoint"];
 var searchIndexName = builder.Configuration["AzureSearch:Index"];
 var searchApiKey = builder.Configuration["AzureSearch:ApiKey"];
@@ -213,9 +214,15 @@ var askEndpoint = app.MapPost("/ask", async (AskRequest request, HttpContext htt
     var chatClient = openAiClient.GetChatClient(chatDeploymentName);
     var embeddingClient = openAiClient.GetEmbeddingClient(embeddingDeploymentName);
 
+    var embeddingOptions = new OpenAI.Embeddings.EmbeddingGenerationOptions();
+    if (embeddingDimensions.HasValue)
+    {
+        embeddingOptions.Dimensions = embeddingDimensions.Value;
+    }
+
     var embeddingResponse = await embeddingClient.GenerateEmbeddingAsync(
         question,
-        options: new OpenAI.Embeddings.EmbeddingGenerationOptions(),
+        options: embeddingOptions,
         cancellationToken: cancellationToken);
     var questionVector = embeddingResponse.Value.ToFloats().ToArray();
 
