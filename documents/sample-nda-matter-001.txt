@@ -1,0 +1,49 @@
+NON-DISCLOSURE AGREEMENT (SAMPLE)
+
+This Non-Disclosure Agreement ("Agreement") is entered into as of March 6, 2026,
+by and between Contoso Legal Operations ("Disclosing Party") and Northwind Analytics
+("Receiving Party"), in connection with evaluation of a potential vendor relationship.
+
+1. Confidential Information
+Confidential Information includes non-public legal strategy documents, draft contracts,
+pricing schedules, data schemas, security architecture notes, and any client-identifying
+information disclosed in written, oral, electronic, or visual form.
+
+2. Permitted Use
+Receiving Party may use Confidential Information solely to evaluate the proposed business
+relationship and for no other purpose. Reverse engineering and model training use are prohibited.
+
+3. Non-Disclosure Obligations
+Receiving Party shall:
+- keep Confidential Information strictly confidential;
+- disclose only to personnel with a need to know and equivalent confidentiality obligations;
+- apply no less than reasonable care, and at least the same care used for its own sensitive data.
+
+4. Exclusions
+Confidential Information does not include information that is:
+(a) publicly available without breach of this Agreement;
+(b) already known to Receiving Party without confidentiality restriction;
+(c) independently developed without use of Confidential Information; or
+(d) lawfully obtained from a third party without restriction.
+
+5. Legal Compulsion
+If disclosure is required by law or court order, Receiving Party must provide prompt notice
+to Disclosing Party (to the extent legally permitted) and cooperate in seeking protective treatment.
+
+6. Term and Survival
+This Agreement remains in effect for two (2) years from the Effective Date.
+Confidentiality obligations for trade secrets survive for as long as the information remains a trade secret.
+All other confidentiality obligations survive for five (5) years after termination.
+
+7. Return or Destruction
+Upon written request, Receiving Party will return or securely destroy Confidential Information
+within ten (10) business days, except archival backups retained under standard retention policy.
+
+8. No License
+No intellectual property rights are granted by this Agreement except the limited right to review
+Confidential Information for the Permitted Use.
+
+9. Governing Law
+This Agreement is governed by the laws of the State of Washington, without regard to conflict-of-law principles.
+
+END OF SAMPLE DOCUMENT

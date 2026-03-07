@@ -84,6 +84,7 @@ fi
 
 SEARCH_ENDPOINT="https://${SEARCH_SERVICE}.search.windows.net"
 API_VERSION="2024-07-01"
+DATASOURCE_API_VERSION="2019-05-06"
 
 echo "=== SharePoint Indexer Setup ==="
 echo "Search Service: $SEARCH_SERVICE"
@@ -144,6 +145,11 @@ INDEX_BODY=$(cat <<EOF
     "fields": [
         {"name": "id", "type": "Edm.String", "key": true, "filterable": true},
         {"name": "content", "type": "Edm.String", "searchable": true, "analyzer": "en.microsoft"},
+        {"name": "sourceFile", "type": "Edm.String", "filterable": true, "facetable": true},
+        {"name": "page", "type": "Edm.Int32", "filterable": true, "sortable": true},
+        {"name": "documentVersion", "type": "Edm.String", "filterable": true, "facetable": true},
+        {"name": "ingestionTimestamp", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true},
+        {"name": "checksum", "type": "Edm.String", "filterable": true, "facetable": true},
         {"name": "metadata_spo_item_name", "type": "Edm.String", "searchable": true, "filterable": true, "sortable": true},
         {"name": "metadata_spo_item_path", "type": "Edm.String", "filterable": true},
         {"name": "metadata_spo_item_content_type", "type": "Edm.String", "filterable": true, "facetable": true},
@@ -154,18 +160,7 @@ INDEX_BODY=$(cat <<EOF
         {"name": "practiceArea", "type": "Edm.String", "filterable": true, "facetable": true},
         {"name": "client", "type": "Edm.String", "filterable": true, "facetable": true},
         {"name": "confidentialityLevel", "type": "Edm.String", "filterable": true, "facetable": true}
-    ],
-    "semantic": {
-        "configurations": [
-            {
-                "name": "legal-semantic",
-                "prioritizedFields": {
-                    "contentFields": [{"fieldName": "content"}],
-                    "titleField": {"fieldName": "metadata_spo_item_name"}
-                }
-            }
-        ]
-    }
+    ]
 }
 EOF
 )
@@ -190,7 +185,7 @@ DATASOURCE_BODY=$(cat <<EOF
 }
 EOF
 )
-api_call "PUT" "${SEARCH_ENDPOINT}/datasources/sharepoint-legal?api-version=${API_VERSION}" \
+api_call "PUT" "${SEARCH_ENDPOINT}/datasources/sharepoint-legal?api-version=${DATASOURCE_API_VERSION}" \
     "$DATASOURCE_BODY" "creating SharePoint data source"
 
 # Step 3: Create the indexer
@@ -214,7 +209,7 @@ INDEXER_BODY=$(cat <<EOF
 }
 EOF
 )
-api_call "PUT" "${SEARCH_ENDPOINT}/indexers/sharepoint-indexer?api-version=${API_VERSION}" \
+api_call "PUT" "${SEARCH_ENDPOINT}/indexers/sharepoint-indexer?api-version=${DATASOURCE_API_VERSION}" \
     "$INDEXER_BODY" "creating SharePoint indexer"
 
 # Step 4: Optionally run the indexer immediately

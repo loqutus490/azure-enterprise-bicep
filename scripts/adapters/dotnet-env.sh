@@ -20,6 +20,7 @@ export AzureAd__Instance="https://login.microsoftonline.com/"
 export AzureAd__TenantId="${RAG_AZURE_TENANT_ID:-}"
 export AzureAd__ClientId="${RAG_AZURE_ENTRA_API_CLIENT_ID:-}"
 export AzureAd__Audience="${RAG_AZURE_ENTRA_API_CLIENT_ID:-}"
+export Authorization__EnableAzureAd="${RAG_AUTH_ENABLE_AZUREAD:-true}"
 
 export Authorization__RequiredScope="${RAG_AUTH_REQUIRED_SCOPE:-access_as_user}"
 export Authorization__RequiredRole="${RAG_AUTH_REQUIRED_ROLE:-Api.Access}"

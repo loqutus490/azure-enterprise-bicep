@@ -2,6 +2,14 @@
 
 Secure internal AI assistant for law firms, built on Azure. Attorneys ask questions in a web chat or Microsoft Teams; the system retrieves relevant content from firm-approved documents (SharePoint/OneDrive) using RAG and returns grounded answers via Azure OpenAI.
 
+## Enterprise Features
+
+✔ Citation-based answers  
+✔ Conversation memory  
+✔ Role-based document access  
+✔ Audit logging  
+✔ Structured AI responses
+
 ## Architecture
 
 ```

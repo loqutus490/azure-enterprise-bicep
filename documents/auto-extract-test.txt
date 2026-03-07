@@ -1,0 +1,13 @@
+Matter ID: MATTER-AUTO-777
+Practice Area: Employment
+Client: Tailspin Toys
+Confidentiality Level: Restricted
+
+EMPLOYMENT COUNSEL MEMO
+
+This memorandum summarizes internal investigation findings and recommended remediation steps related to overtime classification and manager approval workflows.
+
+Action items:
+1. Update exempt/non-exempt role definitions.
+2. Implement weekly payroll compliance audit.
+3. Conduct manager training in Q2.

@@ -1,0 +1,28 @@
+ #Save and run this wrapper from repo root, filling in the placeholders with your real values (<search-name>, <admin-key>, etc.):
+
+  #!/bin/bash
+  set -euo pipefail
+
+SEARCH_SERVICE="${SEARCH_SERVICE:-agent13-search-dev}"
+SEARCH_ADMIN_KEY="${SEARCH_ADMIN_KEY:-<search-admin-key>}"
+SP_TENANT="${SP_TENANT:-contoso}"           # e.g. contoso
+SP_SITE_PATH="${SP_SITE_PATH:-/sites/LegalDocs}"           # adjust per site
+ENTRA_APP_ID="${ENTRA_APP_ID:-<entra-client-id>}"
+ENTRA_APP_SECRET="${ENTRA_APP_SECRET:-<entra-client-secret>}"
+ENTRA_TENANT_ID="${ENTRA_TENANT_ID:-<entra-tenant-id>}"       # optional if same as AZ cli
+
+  ./scripts/setup-sharepoint-indexer.sh \
+    -s "$SEARCH_SERVICE" \
+    -k "$SEARCH_ADMIN_KEY" \
+    -t "$SP_TENANT" \
+    -u "$SP_SITE_PATH" \
+    -a "$ENTRA_APP_ID" \
+    -p "$ENTRA_APP_SECRET" \
+    -d "$ENTRA_TENANT_ID" \
+    -i "legal-index" \
+    -r
+
+  #Make it executable (chmod +x <script>) and run it. The -r flag triggers the indexer after creating the index, and the script now omits the unsupported contentFields 
+#block so the provisioning call succeeds. After it completes, rerun
+  #ingestion to build provenance-aware chunks.
+
