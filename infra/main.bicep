@@ -147,7 +147,7 @@ module app './modules/appservice.bicep' = {
     appLocation: appLocation
     unauthenticatedClientAction: environment == 'dev' ? 'RedirectToLoginPage' : 'Return401'
     aspNetCoreEnvironment: environment == 'dev' ? 'Development' : 'Production'
-    requiredScope: 'user_impersonation'
+    requiredScope: 'access_as_user'
     bypassAuthInDevelopment: false
     bypassMatterAuthorizationInDevelopment: environment == 'dev'
   }
