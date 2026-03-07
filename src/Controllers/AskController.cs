@@ -62,6 +62,9 @@ public sealed class AskController : ControllerBase
 
         if (!_bypassAuthInDevelopment && _enableAzureAd)
         {
+            if (User?.Identity?.IsAuthenticated != true)
+                return Unauthorized();
+
             var authResult = await _authorizationService.AuthorizeAsync(User, policyName: "ApiAccessPolicy");
             if (!authResult.Succeeded)
                 return Unauthorized();
