@@ -83,8 +83,10 @@ public sealed class ConversationMemory
 public sealed class UserClaimsContext
 {
     public string UserId { get; init; } = "anonymous";
+    public string Email { get; init; } = string.Empty;
     public string Role { get; init; } = "unknown";
     public HashSet<string> PermittedMatters { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyList<string> Groups { get; init; } = Array.Empty<string>();
 }
 
 public sealed class ChatRequest

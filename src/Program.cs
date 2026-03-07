@@ -7,7 +7,8 @@ using Microsoft.Identity.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var enableAzureAd = builder.Configuration.GetValue<bool>("Authorization:EnableAzureAd");
+// Default to true so that tests and deployments without explicit toggles still exercise auth.
+var enableAzureAd = builder.Configuration.GetValue<bool?>("Authorization:EnableAzureAd") ?? true;
 if (enableAzureAd)
 {
     builder.Services

@@ -44,7 +44,8 @@ public sealed class AskController : ControllerBase
         _provenanceService = provenanceService;
         _memoryService = memoryService;
         _authorizationService = authorizationService;
-        _enableAzureAd = configuration.GetValue<bool>("Authorization:EnableAzureAd");
+        // Assume Azure AD enforcement unless explicitly toggled off to avoid bypassing auth unexpectedly.
+        _enableAzureAd = configuration.GetValue<bool?>("Authorization:EnableAzureAd") ?? true;
         _environment = environment;
         _logger = logger;
         _conversationMemoryDepth = configuration.GetValue<int?>("Rag:ConversationMemoryDepth") ?? 5;
@@ -63,7 +64,7 @@ public sealed class AskController : ControllerBase
         {
             var authResult = await _authorizationService.AuthorizeAsync(User, policyName: "ApiAccessPolicy");
             if (!authResult.Succeeded)
-                return Forbid();
+                return Unauthorized();
         }
 
         if (string.IsNullOrWhiteSpace(request.Question))
@@ -208,7 +209,7 @@ public sealed class AskController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogWarning(ex, "AskRequest denied by matter RBAC. MatterId={MatterId}", request.MatterId);
-            return Forbid();
+            return Unauthorized();
         }
         catch (Exception ex)
         {

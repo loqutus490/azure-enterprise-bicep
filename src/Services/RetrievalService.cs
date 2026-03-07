@@ -19,6 +19,7 @@ public sealed class RetrievalService : IRetrievalService
     private readonly int _maxChunkChars;
     private readonly int? _embeddingDimensions;
     private readonly string[] _permittedMatterClaimTypes;
+    private readonly string[] _groupClaimTypes;
     private readonly List<string> _baseSelectFields = new()
     {
         "content",
@@ -34,6 +35,10 @@ public sealed class RetrievalService : IRetrievalService
         "checksum"
     };
     private readonly HashSet<string> _missingSelectFields = new(StringComparer.OrdinalIgnoreCase);
+
+    // Flipped to false at runtime if the index does not have allowedUsers/allowedGroups fields.
+    // Volatile so the write from a failed search thread is visible to subsequent threads.
+    private volatile bool _aclFilterEnabled;
 
     public RetrievalService(
         IIndexVersionService indexVersionService,
@@ -54,6 +59,9 @@ public sealed class RetrievalService : IRetrievalService
         _maxChunkChars = configuration.GetValue<int?>("Rag:MaxContextCharacters") ?? 12000;
         _permittedMatterClaimTypes = configuration.GetSection("Authorization:PermittedMattersClaimTypes").Get<string[]>()
             ?? new[] { "permittedMatters", "matter_ids", "matters", "matterId", "extension_matterIds" };
+        _groupClaimTypes = configuration.GetSection("Authorization:GroupClaimTypes").Get<string[]>()
+            ?? new[] { "groups", "group", "roles" };
+        _aclFilterEnabled = configuration.GetValue<bool?>("Authorization:EnableAclFilter") ?? true;
     }
 
     public async Task<RetrievalResult> RetrieveAsync(AskRequestDto request, ClaimsPrincipal user, CancellationToken cancellationToken)
@@ -66,22 +74,27 @@ public sealed class RetrievalService : IRetrievalService
         if (!userClaims.PermittedMatters.Contains(request.MatterId))
             throw new UnauthorizedAccessException($"Matter access denied for {request.MatterId}.");
 
-        var filters = new List<string>
+        var baseFilters = new List<string>
         {
             securityFilter,
             $"matterId eq '{EscapeODataString(request.MatterId)}'"
         };
 
         if (!string.IsNullOrWhiteSpace(request.PracticeArea))
-            filters.Add($"practiceArea eq '{EscapeODataString(request.PracticeArea)}'");
+            baseFilters.Add($"practiceArea eq '{EscapeODataString(request.PracticeArea)}'");
 
         if (!string.IsNullOrWhiteSpace(request.Client))
-            filters.Add($"client eq '{EscapeODataString(request.Client)}'");
+            baseFilters.Add($"client eq '{EscapeODataString(request.Client)}'");
 
         if (!string.IsNullOrWhiteSpace(request.ConfidentialityLevel))
-            filters.Add($"confidentialityLevel eq '{EscapeODataString(request.ConfidentialityLevel)}'");
+            baseFilters.Add($"confidentialityLevel eq '{EscapeODataString(request.ConfidentialityLevel)}'");
 
-        var searchFilter = string.Join(" and ", filters);
+        var aclFilter = BuildAclFilter(userClaims);
+
+        // searchFilter reflects the full intended filter for audit logging.
+        var searchFilter = _aclFilterEnabled && !string.IsNullOrEmpty(aclFilter)
+            ? $"{string.Join(" and ", baseFilters)} and {aclFilter}"
+            : string.Join(" and ", baseFilters);
 
         var embeddingOptions = new OpenAI.Embeddings.EmbeddingGenerationOptions();
         if (_embeddingDimensions.HasValue)
@@ -97,7 +110,7 @@ public sealed class RetrievalService : IRetrievalService
         var searchOptions = new SearchOptions
         {
             Size = _topChunks,
-            Filter = searchFilter,
+            // Filter is composed inside ExecuteSearchAsync to support ACL fallback.
             VectorSearch = new VectorSearchOptions
             {
                 Queries =
@@ -115,8 +128,10 @@ public sealed class RetrievalService : IRetrievalService
         {
             searchOptions.Select.Add(field);
         }
+
         var searchClient = _indexVersionService.CreateSearchClientForActiveIndex();
-        var searchResponse = await ExecuteSearchAsync(searchClient, request.Question, searchOptions, cancellationToken);
+        var searchResponse = await ExecuteSearchAsync(
+            searchClient, request.Question, searchOptions, baseFilters, aclFilter, cancellationToken);
 
         var chunks = new List<RetrievedChunk>();
         var runningChars = 0;
@@ -175,6 +190,16 @@ public sealed class RetrievalService : IRetrievalService
             ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value
             ?? "anonymous";
 
+        // Email is used in the ACL allowedUsers filter. preferred_username in Entra ID tokens
+        // is the UPN (user@tenant.com), which matches how allowedUsers is populated at ingestion.
+        var email = user.FindFirst("preferred_username")?.Value
+            ?? user.FindFirst("email")?.Value
+            ?? user.FindFirst("upn")?.Value
+            ?? user.FindFirst("unique_name")?.Value
+            ?? user.FindFirst(ClaimTypes.Email)?.Value
+            ?? user.FindFirst(ClaimTypes.Upn)?.Value
+            ?? string.Empty;
+
         var role = user.FindFirst("role")?.Value
             ?? user.FindFirst(ClaimTypes.Role)?.Value
             ?? "unknown";
@@ -191,11 +216,22 @@ public sealed class RetrievalService : IRetrievalService
             }
         }
 
+        // Collect group object IDs (GUIDs) from the token's groups claims.
+        // Entra ID emits group OIDs in the "groups" claim when the token has group membership.
+        var groups = _groupClaimTypes
+            .SelectMany(claimType => user.FindAll(claimType))
+            .Select(c => c.Value)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         return new UserClaimsContext
         {
             UserId = userId,
+            Email = email,
             Role = role,
-            PermittedMatters = permittedMatters
+            PermittedMatters = permittedMatters,
+            Groups = groups
         };
     }
 
@@ -207,6 +243,28 @@ public sealed class RetrievalService : IRetrievalService
         var clauses = userClaims.PermittedMatters
             .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
             .Select(m => $"matterId eq '{EscapeODataString(m)}'");
+        return $"({string.Join(" or ", clauses)})";
+    }
+
+    // Builds an OData filter expression that restricts results to documents the user
+    // is explicitly permitted to access via allowedUsers or allowedGroups ACL fields.
+    // Returns empty string when the user has no identity to filter on (anonymous or test context).
+    public string BuildAclFilter(UserClaimsContext userClaims)
+    {
+        var clauses = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(userClaims.Email))
+            clauses.Add($"allowedUsers/any(u: u eq '{EscapeODataString(userClaims.Email)}')");
+
+        foreach (var group in userClaims.Groups)
+        {
+            if (!string.IsNullOrWhiteSpace(group))
+                clauses.Add($"allowedGroups/any(g: g eq '{EscapeODataString(group)}')");
+        }
+
+        if (clauses.Count == 0)
+            return string.Empty;
+
         return $"({string.Join(" or ", clauses)})";
     }
 
@@ -295,14 +353,24 @@ public sealed class RetrievalService : IRetrievalService
         return _baseSelectFields.Where(field => !_missingSelectFields.Contains(field)).ToList();
     }
 
+    // Executes the search with ACL + base filters composed at call time, so that the ACL
+    // filter can be silently dropped and retried if the index does not yet have the
+    // allowedUsers/allowedGroups schema fields.
     private async Task<Response<SearchResults<SearchDocument>>> ExecuteSearchAsync(
         SearchClient client,
         string query,
         SearchOptions options,
+        IReadOnlyList<string> baseFilters,
+        string? aclFilter,
         CancellationToken cancellationToken)
     {
         while (true)
         {
+            var activeFilters = _aclFilterEnabled && !string.IsNullOrEmpty(aclFilter)
+                ? baseFilters.Concat(new[] { aclFilter }).ToList()
+                : baseFilters.ToList();
+            options.Filter = string.Join(" and ", activeFilters);
+
             try
             {
                 return await client.SearchAsync<SearchDocument>(query, options, cancellationToken);
@@ -315,6 +383,15 @@ public sealed class RetrievalService : IRetrievalService
                     _logger.LogWarning("Search index missing field '{Field}'; removed from select list.", field);
                     continue;
                 }
+            }
+            catch (RequestFailedException ex) when (_aclFilterEnabled && !string.IsNullOrEmpty(aclFilter) && IsAclFilterError(ex))
+            {
+                _aclFilterEnabled = false;
+                _logger.LogWarning(
+                    "ACL filter fields (allowedUsers/allowedGroups) are missing from the search index. " +
+                    "Document-level ACL security trimming is DISABLED until the service is restarted. " +
+                    "Run 'python scripts/ingest.py' after adding these fields to the index schema.");
+                continue;
             }
             catch (RequestFailedException)
             {
@@ -333,4 +410,9 @@ public sealed class RetrievalService : IRetrievalService
         fieldName = match.Groups[1].Value;
         return !string.IsNullOrWhiteSpace(fieldName);
     }
+
+    private static bool IsAclFilterError(RequestFailedException ex) =>
+        ex.Status == 400 &&
+        (ex.Message.Contains("allowedUsers", StringComparison.OrdinalIgnoreCase) ||
+         ex.Message.Contains("allowedGroups", StringComparison.OrdinalIgnoreCase));
 }

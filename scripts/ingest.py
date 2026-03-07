@@ -450,6 +450,112 @@ def resolve_confidentiality_level(text: str, doc_metadata: dict) -> tuple[str, s
     return "", ""
 
 
+def resolve_acl(doc_metadata: dict) -> tuple[list[str], list[str]]:
+    """
+    Resolve document ACL (access-control lists) from per-document metadata.
+
+    Returns:
+        (allowedUsers, allowedGroups)
+
+    allowedUsers:  list of UPNs or email addresses permitted to read this document
+                   (matched against the preferred_username / email claim in Entra ID tokens).
+    allowedGroups: list of Entra ID group object IDs (or display names) permitted to read
+                   this document (matched against the groups claim in Entra ID tokens).
+
+    Default behaviour when no ACL is specified: grant read access to the "all-lawyers"
+    group so that newly ingested documents are accessible to all firm staff until explicit
+    ACLs are applied.
+    """
+    if not isinstance(doc_metadata, dict):
+        return [], ["all-lawyers"]
+
+    allowed_users = doc_metadata.get("allowedUsers", [])
+    if not isinstance(allowed_users, list):
+        allowed_users = [allowed_users] if allowed_users else []
+    allowed_users = [u.strip() for u in allowed_users if u and str(u).strip()]
+
+    allowed_groups = doc_metadata.get("allowedGroups", [])
+    if not isinstance(allowed_groups, list):
+        allowed_groups = [allowed_groups] if allowed_groups else []
+    allowed_groups = [g.strip() for g in allowed_groups if g and str(g).strip()]
+
+    # Default: broad firm-wide read access when no explicit ACL has been assigned.
+    if not allowed_users and not allowed_groups:
+        allowed_groups = ["all-lawyers"]
+
+    return allowed_users, allowed_groups
+
+
+def ensure_acl_fields_in_index() -> None:
+    """
+    Add allowedUsers and allowedGroups Collection(Edm.String) fields to the active
+    index if they are not already present.  These fields are required for document-level
+    ACL security trimming in the API layer.
+
+    The fields are marked filterable=True and retrievable=False.  They are stored in
+    the index for filter evaluation only and are never returned in query results, which
+    prevents ACL metadata from leaking through the API response.
+
+    Requires AZURE_SEARCH_KEY to be set (used for index management REST calls).
+    """
+    if not AZURE_SEARCH_KEY:
+        logger.warning(
+            "AZURE_SEARCH_KEY not set; cannot auto-update index schema. "
+            "Manually add 'allowedUsers' and 'allowedGroups' Collection(Edm.String) "
+            "filterable fields to index '%s' to enable document-level ACL filtering.",
+            active_index_name,
+        )
+        return
+
+    api_version = "2024-07-01"
+    try:
+        schema = _api_call(
+            "GET",
+            f"{AZURE_SEARCH_ENDPOINT}/indexes/{active_index_name}?api-version={api_version}",
+        )
+    except Exception as exc:
+        logger.warning("Could not retrieve index schema for ACL field check: %s", exc)
+        return
+
+    existing_names = {f["name"] for f in schema.get("fields", [])}
+
+    new_fields = []
+    for field_name in ("allowedUsers", "allowedGroups"):
+        if field_name not in existing_names:
+            new_fields.append(
+                {
+                    "name": field_name,
+                    "type": "Collection(Edm.String)",
+                    "filterable": True,
+                    "retrievable": False,
+                    "searchable": False,
+                    "sortable": False,
+                    "facetable": False,
+                }
+            )
+
+    if not new_fields:
+        logger.info("ACL fields (allowedUsers, allowedGroups) already present in index '%s'.", active_index_name)
+        return
+
+    schema["fields"].extend(new_fields)
+    try:
+        _api_call(
+            "PUT",
+            f"{AZURE_SEARCH_ENDPOINT}/indexes/{active_index_name}?api-version={api_version}",
+            schema,
+        )
+        added = [f["name"] for f in new_fields]
+        logger.info("Added ACL fields %s to index '%s'.", added, active_index_name)
+    except Exception as exc:
+        logger.warning(
+            "Could not update index schema with ACL fields: %s. "
+            "Manually add 'allowedUsers' and 'allowedGroups' Collection(Edm.String) "
+            "filterable fields before ingesting.",
+            exc,
+        )
+
+
 def ingest_documents() -> None:
     base_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.dirname(base_dir)
@@ -532,6 +638,7 @@ def ingest_documents() -> None:
         practice_area, practice_area_source = resolve_practice_area(text, doc_metadata)
         client, client_source = resolve_client(text, doc_metadata)
         confidentiality_level, confidentiality_level_source = resolve_confidentiality_level(text, doc_metadata)
+        allowed_users, allowed_groups = resolve_acl(doc_metadata)
         if practice_area:
             logger.info("🧾 practiceArea resolved for %s: %s (%s)", filename, practice_area, practice_area_source)
         if client:
@@ -543,6 +650,7 @@ def ingest_documents() -> None:
                 confidentiality_level,
                 confidentiality_level_source,
             )
+        logger.info("🔐 ACL resolved for %s: users=%s groups=%s", filename, allowed_users, allowed_groups)
 
         chunks = chunk_text(text, max_chars=2000, overlap=200)
         logger.info("🧠 Creating embeddings for %d chunk(s)...", len(chunks))
@@ -574,6 +682,8 @@ def ingest_documents() -> None:
                     "documentVersion": document_version,
                     "ingestionTimestamp": run_ingestion_timestamp,
                     "checksum": checksum,
+                    "allowedUsers": allowed_users,
+                    "allowedGroups": allowed_groups,
                 }
             )
 
@@ -613,4 +723,5 @@ if __name__ == "__main__":
     create_versioned_index_if_needed(repo_root_for_indexing)
     validate_openai_access()
     validate_search_access()
+    ensure_acl_fields_in_index()
     ingest_documents()

@@ -8,6 +8,7 @@ public interface IRetrievalService
 {
     Task<RetrievalResult> RetrieveAsync(AskRequestDto request, ClaimsPrincipal user, CancellationToken cancellationToken);
     string BuildSecurityFilter(UserClaimsContext userClaims);
+    string BuildAclFilter(UserClaimsContext userClaims);
     UserClaimsContext GetUserClaims(ClaimsPrincipal user);
 }
 
