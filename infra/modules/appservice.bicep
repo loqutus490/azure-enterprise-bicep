@@ -66,7 +66,16 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true
+      appCommandLine: 'dotnet LegalRagApp.dll'
       appSettings: [
+        {
+          name: 'WEBSITE_RUN_FROM_PACKAGE'
+          value: '1'
+        }
+        {
+          name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
+          value: 'false'
+        }
         {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
           value: appInsightsKey
