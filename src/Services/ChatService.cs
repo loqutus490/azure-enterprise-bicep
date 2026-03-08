@@ -52,7 +52,7 @@ public sealed class ChatService : IChatService
         if (string.IsNullOrWhiteSpace(modelText))
             return new ChatGenerationResult
             {
-                Answer = BuildFallback("I cannot find this information in the provided materials.", request.RetrievedChunks),
+                Answer = BuildFallback(PromptOutputFactory.InsufficientContextSummary, request.RetrievedChunks),
                 PromptTokens = promptTokens,
                 CompletionTokens = completionTokens,
                 EstimatedCost = estimatedCost
@@ -72,13 +72,14 @@ public sealed class ChatService : IChatService
         }
 
         if (string.IsNullOrWhiteSpace(parsed.Summary))
-            parsed.Summary = "I cannot find this information in the provided materials.";
+            parsed.Summary = PromptOutputFactory.InsufficientContextSummary;
 
         if (parsed.Citations.Count == 0 && request.RetrievedChunks.Count > 0)
         {
             // Preserve citations behavior even when model omits the field.
             parsed.Citations = request.RetrievedChunks.Take(2).Select(c => new CitationDto
             {
+                DocumentId = c.DocumentId ?? c.Checksum ?? string.Empty,
                 Document = c.SourceFile ?? "unknown",
                 Page = c.Page,
                 Excerpt = c.Snippet,
@@ -86,6 +87,10 @@ public sealed class ChatService : IChatService
                 IngestedAt = c.IngestionTimestamp,
                 Checksum = c.Checksum
             }).ToList();
+        }
+        else
+        {
+            parsed.Citations = BackfillCitationDocumentIds(parsed.Citations, request.RetrievedChunks);
         }
 
         if (string.IsNullOrWhiteSpace(parsed.Confidence))
@@ -111,6 +116,7 @@ public sealed class ChatService : IChatService
             var chunk = chunks[i];
             sb.AppendLine($"[Chunk {i + 1}]");
             sb.AppendLine($"Document: {chunk.SourceFile ?? "unknown"}");
+            sb.AppendLine($"DocumentId: {chunk.DocumentId ?? chunk.Checksum ?? "unknown"}");
             sb.AppendLine($"Page: {(chunk.Page?.ToString() ?? "unknown")}");
             sb.AppendLine($"Version: {chunk.DocumentVersion ?? "unknown"}");
             sb.AppendLine($"IngestedAt: {(chunk.IngestionTimestamp?.ToString("o") ?? "unknown")}");
@@ -172,6 +178,7 @@ public sealed class ChatService : IChatService
             KeyPoints = new List<string>(),
             Citations = chunks.Take(2).Select(c => new CitationDto
             {
+                DocumentId = c.DocumentId ?? c.Checksum ?? string.Empty,
                 Document = c.SourceFile ?? "unknown",
                 Page = c.Page,
                 Excerpt = c.Snippet,
@@ -183,6 +190,42 @@ public sealed class ChatService : IChatService
         };
     }
 
+    private static List<CitationDto> BackfillCitationDocumentIds(IReadOnlyList<CitationDto> citations, IReadOnlyList<RetrievedChunk> chunks)
+    {
+        if (citations.Count == 0)
+            return new List<CitationDto>();
+
+        var byDoc = chunks
+            .Where(c => !string.IsNullOrWhiteSpace(c.SourceFile))
+            .GroupBy(c => c.SourceFile!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var enriched = new List<CitationDto>(citations.Count);
+        foreach (var citation in citations)
+        {
+            if (!string.IsNullOrWhiteSpace(citation.DocumentId))
+            {
+                enriched.Add(citation);
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(citation.Document)
+                && byDoc.TryGetValue(citation.Document, out var matches)
+                && matches.Count > 0)
+            {
+                var matched = citation.Page.HasValue
+                    ? matches.FirstOrDefault(m => m.Page == citation.Page) ?? matches[0]
+                    : matches[0];
+
+                citation.DocumentId = matched.DocumentId ?? matched.Checksum ?? string.Empty;
+            }
+
+            enriched.Add(citation);
+        }
+
+        return enriched;
+    }
+
     private static string InferConfidence(StructuredAnswerDto answer, int chunkCount) => InferConfidence(answer.Summary, chunkCount);
 
     private static string InferConfidence(string summary, int chunkCount)
@@ -190,7 +233,7 @@ public sealed class ChatService : IChatService
         if (chunkCount == 0)
             return "low";
 
-        if (summary.Contains("I cannot find this information", StringComparison.OrdinalIgnoreCase))
+        if (summary.Contains(PromptOutputFactory.InsufficientContextSummary, StringComparison.OrdinalIgnoreCase))
             return "low";
 
         return chunkCount >= 3 ? "high" : "medium";

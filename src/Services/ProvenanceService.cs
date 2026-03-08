@@ -29,6 +29,9 @@ public sealed class ProvenanceService : IProvenanceService
 
                 enriched.Add(new CitationDto
                 {
+                    DocumentId = string.IsNullOrWhiteSpace(citation.DocumentId)
+                        ? matched.DocumentId ?? matched.Checksum ?? string.Empty
+                        : citation.DocumentId,
                     Document = citation.Document,
                     Page = citation.Page ?? matched.Page,
                     Excerpt = string.IsNullOrWhiteSpace(citation.Excerpt) ? matched.Snippet : citation.Excerpt,
@@ -38,6 +41,9 @@ public sealed class ProvenanceService : IProvenanceService
                 });
                 continue;
             }
+
+            if (string.IsNullOrWhiteSpace(citation.DocumentId))
+                citation.DocumentId = citation.Checksum ?? string.Empty;
 
             enriched.Add(citation);
         }

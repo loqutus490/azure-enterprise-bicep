@@ -22,6 +22,7 @@ public sealed class RetrievalService : IRetrievalService
     private readonly string[] _groupClaimTypes;
     private readonly List<string> _baseSelectFields = new()
     {
+        "id",
         "content",
         "source",
         "sourceFile",
@@ -153,6 +154,7 @@ public sealed class RetrievalService : IRetrievalService
 
             chunks.Add(new RetrievedChunk
             {
+                DocumentId = result.Document.TryGetValue("id", out var idObj) ? idObj?.ToString() : null,
                 Content = content,
                 Snippet = snippet,
                 SourceFile = sourceFile,

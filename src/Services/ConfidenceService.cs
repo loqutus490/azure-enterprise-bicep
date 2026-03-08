@@ -29,14 +29,20 @@ public sealed class ConfidenceService : IConfidenceService
         if (citations.Count == 0)
             return 0.0;
 
+        var validDocIds = new HashSet<string>(
+            chunks.Select(c => c.DocumentId ?? c.Checksum).Where(s => !string.IsNullOrWhiteSpace(s)).Cast<string>(),
+            StringComparer.OrdinalIgnoreCase);
+
         var validDocs = new HashSet<string>(
             chunks.Select(c => c.SourceFile).Where(s => !string.IsNullOrWhiteSpace(s)).Cast<string>(),
             StringComparer.OrdinalIgnoreCase);
 
-        if (validDocs.Count == 0)
+        if (validDocs.Count == 0 && validDocIds.Count == 0)
             return 0.0;
 
-        var consistent = citations.Count(c => !string.IsNullOrWhiteSpace(c.Document) && validDocs.Contains(c.Document));
+        var consistent = citations.Count(c =>
+            (!string.IsNullOrWhiteSpace(c.DocumentId) && validDocIds.Contains(c.DocumentId))
+            || (!string.IsNullOrWhiteSpace(c.Document) && validDocs.Contains(c.Document)));
         return (double)consistent / citations.Count;
     }
 }

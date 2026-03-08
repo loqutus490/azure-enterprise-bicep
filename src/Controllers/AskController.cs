@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using LegalRagApp.Middleware;
 using LegalRagApp.Models;
+using LegalRagApp.Prompts;
 using LegalRagApp.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -121,13 +122,7 @@ public sealed class AskController : ControllerBase
             double estimatedCost = 0.0;
             if (retrieval.Chunks.Count == 0)
             {
-                structured = new StructuredAnswerDto
-                {
-                    Summary = "I cannot find this information in the provided materials.",
-                    KeyPoints = new List<string>(),
-                    Citations = new List<CitationDto>(),
-                    Confidence = "low"
-                };
+                structured = PromptOutputFactory.BuildInsufficientContextFallback();
             }
             else
             {

@@ -26,6 +26,7 @@ public sealed class AskResponseDto
 
 public sealed class CitationDto
 {
+    public string DocumentId { get; set; } = string.Empty;
     public string Document { get; set; } = string.Empty;
     public int? Page { get; set; }
     public string Excerpt { get; set; } = string.Empty;
@@ -44,6 +45,7 @@ public sealed class StructuredAnswerDto
 
 public sealed class RetrievedChunk
 {
+    public string? DocumentId { get; set; }
     public string Content { get; set; } = string.Empty;
     public string Snippet { get; set; } = string.Empty;
     public string? SourceFile { get; set; }
