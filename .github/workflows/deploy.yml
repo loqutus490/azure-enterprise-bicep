@@ -127,6 +127,12 @@ jobs:
             --resource-group "$RESOURCE_GROUP" \
             --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,resourceType:properties.targetResource.resourceType,code:properties.statusMessage.error.code,message:properties.statusMessage.error.message}" \
             -o table || true
+          echo "Failed operation inner status messages:"
+          az deployment operation group list \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,statusMessage:properties.statusMessage}" \
+            -o json || true
 
       - name: Download Backend Artifact
         uses: actions/download-artifact@v4
@@ -318,6 +324,12 @@ jobs:
             --resource-group "$RESOURCE_GROUP" \
             --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,resourceType:properties.targetResource.resourceType,code:properties.statusMessage.error.code,message:properties.statusMessage.error.message}" \
             -o table || true
+          echo "Failed operation inner status messages:"
+          az deployment operation group list \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,statusMessage:properties.statusMessage}" \
+            -o json || true
 
       - name: Download Backend Artifact
         uses: actions/download-artifact@v4

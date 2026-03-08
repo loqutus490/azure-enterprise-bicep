@@ -1,7 +1,7 @@
 using '../main.bicep'
 
 param environment = 'prod'
-param location = 'eastus'
+param location = 'westus3'
 param appServicePlanSkuName = 'B1'
 param appServicePlanSkuTier = 'Basic'
 param deployOpenAiModels = false
