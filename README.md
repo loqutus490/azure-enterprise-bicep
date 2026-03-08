@@ -160,9 +160,15 @@ az deployment group create \
   -r
 ```
 
-### 4. Ingest Documents (Manual Alternative)
+### 4. Ingest Documents (Production Pipeline)
 
-For `.txt` files outside of SharePoint:
+The ingestion pipeline supports:
+- Local folder source (`--source folder`, default)
+- SharePoint source via Graph connector credentials (`--source sharepoint`)
+
+It performs chunking, embedding generation via Azure OpenAI, batched upload to Azure AI Search, metadata enrichment, retry logic, and structured logging.
+
+#### 4a. Local Folder Source
 
 ```bash
 cp .env.shared.example .env.shared
@@ -172,7 +178,7 @@ cp .env.shared.example .env.shared
 
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-bash -lc 'source ./scripts/adapters/python-env.sh ./.env.shared && .venv/bin/python scripts/ingest.py'
+bash -lc 'source ./scripts/adapters/python-env.sh ./.env.shared && .venv/bin/python scripts/ingest.py --source folder --documents-path documents'
 ```
 
 `scripts/ingest.py` now requires `documents/metadata.json` entries with `matterId` for each ingested file.
@@ -181,6 +187,25 @@ If Search RBAC/token auth is restricted in your environment, you can provide an 
 ```bash
 AZURE_SEARCH_KEY='<search-admin-key>' .venv/bin/python scripts/ingest.py
 ```
+
+#### 4b. SharePoint Source
+
+Set these variables in `.env.shared` first:
+- `SHAREPOINT_TENANT_ID`
+- `SHAREPOINT_CLIENT_ID`
+- `SHAREPOINT_CLIENT_SECRET`
+- `SHAREPOINT_DRIVE_ID`
+- Optional: `SHAREPOINT_FOLDER_PATH`
+
+Then run:
+
+```bash
+bash -lc 'source ./scripts/adapters/python-env.sh ./.env.shared && .venv/bin/python scripts/ingest.py --source sharepoint'
+```
+
+Notes:
+- SharePoint ingestion currently processes UTF-8 text-like files (`.txt`, `.md`, `.csv`, `.json`).
+- The pipeline requires a `matterId`; if not present in metadata/content/filename, set `RAG_DEFAULT_MATTER_ID` in `.env.shared`.
 
 ### 4b. Query + Embedding Checks (Python Utilities)
 

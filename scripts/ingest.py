@@ -1,6 +1,5 @@
 import os
 import sys
-import uuid
 import json
 import re
 import hashlib
@@ -11,6 +10,9 @@ import logging
 import datetime
 import urllib.request
 import urllib.error
+import argparse
+import urllib.parse
+from dataclasses import dataclass
 
 from dotenv import load_dotenv
 from openai import AzureOpenAI
@@ -42,6 +44,13 @@ AZURE_SEARCH_INDEX = os.getenv("AZURE_SEARCH_INDEX")
 AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
 DOCUMENT_VERSION_DEFAULT = os.getenv("RAG_DOCUMENT_VERSION", "v1.0")
 CREATE_NEW_INDEX_VERSION = os.getenv("RAG_CREATE_NEW_INDEX_VERSION", "true").lower() in {"1", "true", "yes"}
+DEFAULT_MATTER_ID = os.getenv("RAG_DEFAULT_MATTER_ID", "").strip()
+
+SHAREPOINT_TENANT_ID = os.getenv("SHAREPOINT_TENANT_ID", "").strip()
+SHAREPOINT_CLIENT_ID = os.getenv("SHAREPOINT_CLIENT_ID", "").strip()
+SHAREPOINT_CLIENT_SECRET = os.getenv("SHAREPOINT_CLIENT_SECRET", "").strip()
+SHAREPOINT_DRIVE_ID = os.getenv("SHAREPOINT_DRIVE_ID", "").strip()
+SHAREPOINT_FOLDER_PATH = os.getenv("SHAREPOINT_FOLDER_PATH", "").strip()
 
 required_vars = {
     "AZURE_OPENAI_ENDPOINT": AZURE_OPENAI_ENDPOINT,
@@ -87,6 +96,15 @@ def retry(max_attempts: int = 3, initial_delay: float = 1.0, backoff: float = 2.
         return wrapper
 
     return deco
+
+
+@dataclass
+class SourceDocument:
+    source_name: str
+    document_id: str
+    raw_bytes: bytes
+    text: str
+    metadata: dict
 
 
 # ---------------------------
@@ -280,17 +298,269 @@ def chunk_text(text: str, max_chars: int = 2000, overlap: int = 200) -> list[str
     if max_chars <= 0:
         return [text]
 
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    if not paragraphs:
+        return [text[:max_chars]]
+
     chunks = []
-    start = 0
-    text_len = len(text)
-    while start < text_len:
-        end = start + max_chars
-        chunks.append(text[start:end])
-        if end >= text_len:
-            break
-        start = end - overlap if (end - overlap) > start else end
+    current = ""
+    for para in paragraphs:
+        candidate = para if not current else f"{current}\n\n{para}"
+        if len(candidate) <= max_chars:
+            current = candidate
+            continue
+
+        if current:
+            chunks.append(current)
+            current = ""
+
+        if len(para) <= max_chars:
+            current = para
+            continue
+
+        start = 0
+        while start < len(para):
+            end = start + max_chars
+            chunks.append(para[start:end])
+            if end >= len(para):
+                break
+            start = end - overlap if (end - overlap) > start else end
+
+    if current:
+        chunks.append(current)
 
     return chunks
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Production document ingestion for Azure AI Search.")
+    parser.add_argument(
+        "--source",
+        choices=["folder", "sharepoint"],
+        default="folder",
+        help="Document source type.",
+    )
+    parser.add_argument(
+        "--documents-path",
+        default="documents",
+        help="Local folder path used when --source folder.",
+    )
+    parser.add_argument(
+        "--max-chars",
+        type=int,
+        default=2000,
+        help="Chunk size in characters.",
+    )
+    parser.add_argument(
+        "--overlap",
+        type=int,
+        default=200,
+        help="Chunk overlap in characters for long segments.",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=100,
+        help="Search upload batch size.",
+    )
+    return parser.parse_args()
+
+
+def _read_text_from_bytes(raw: bytes, source_name: str) -> str:
+    try:
+        return clean_text(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        logger.warning("Skipping %s because content is not valid UTF-8 text.", source_name)
+        return ""
+
+
+def _is_supported_text_name(name: str) -> bool:
+    lowered = name.lower()
+    return lowered.endswith(".txt") or lowered.endswith(".md") or lowered.endswith(".csv") or lowered.endswith(".json")
+
+
+def load_local_documents(documents_folder: str) -> tuple[list[SourceDocument], dict]:
+    logger.info("📂 Local documents folder: %s", documents_folder)
+    if not os.path.exists(documents_folder):
+        logger.error("Documents folder not found: %s", documents_folder)
+        return [], {}
+
+    metadata_map = load_document_metadata(documents_folder)
+    docs: list[SourceDocument] = []
+    for filename in os.listdir(documents_folder):
+        if not _is_supported_text_name(filename):
+            logger.warning("Skipping unsupported format: %s", filename)
+            continue
+
+        filepath = os.path.join(documents_folder, filename)
+        try:
+            with open(filepath, "rb") as f:
+                raw = f.read()
+        except Exception as exc:
+            logger.warning("Skipping %s because file could not be read: %s", filename, exc)
+            continue
+
+        if not raw:
+            logger.warning("Skipping %s because file is empty.", filename)
+            continue
+
+        text = _read_text_from_bytes(raw, filename)
+        if not text:
+            continue
+
+        docs.append(
+            SourceDocument(
+                source_name=filename,
+                document_id=filename,
+                raw_bytes=raw,
+                text=text,
+                metadata=metadata_map.get(filename, {}),
+            )
+        )
+
+    logger.info("Loaded %d local document(s) for ingestion.", len(docs))
+    return docs, metadata_map
+
+
+@retry(max_attempts=4, initial_delay=1.0, exceptions=(urllib.error.URLError, urllib.error.HTTPError))
+def _graph_token() -> str:
+    required = {
+        "SHAREPOINT_TENANT_ID": SHAREPOINT_TENANT_ID,
+        "SHAREPOINT_CLIENT_ID": SHAREPOINT_CLIENT_ID,
+        "SHAREPOINT_CLIENT_SECRET": SHAREPOINT_CLIENT_SECRET,
+    }
+    missing = [k for k, v in required.items() if not v]
+    if missing:
+        raise RuntimeError(f"Missing required SharePoint auth environment variables: {', '.join(missing)}")
+
+    token_url = f"https://login.microsoftonline.com/{SHAREPOINT_TENANT_ID}/oauth2/v2.0/token"
+    form_data = urllib.parse.urlencode(
+        {
+            "client_id": SHAREPOINT_CLIENT_ID,
+            "client_secret": SHAREPOINT_CLIENT_SECRET,
+            "scope": "https://graph.microsoft.com/.default",
+            "grant_type": "client_credentials",
+        }
+    ).encode("utf-8")
+
+    req = urllib.request.Request(token_url, method="POST", data=form_data)
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    with urllib.request.urlopen(req, timeout=60) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+        token = payload.get("access_token")
+        if not token:
+            raise RuntimeError("SharePoint token response did not include access_token.")
+        return token
+
+
+@retry(max_attempts=4, initial_delay=1.0, exceptions=(urllib.error.URLError, urllib.error.HTTPError))
+def _graph_get(url: str, token: str) -> dict:
+    req = urllib.request.Request(url=url, method="GET")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Accept", "application/json")
+    with urllib.request.urlopen(req, timeout=60) as response:
+        body = response.read().decode("utf-8")
+        return json.loads(body) if body else {}
+
+
+@retry(max_attempts=4, initial_delay=1.0, exceptions=(urllib.error.URLError, urllib.error.HTTPError))
+def _download_sharepoint_file(download_url: str) -> bytes:
+    req = urllib.request.Request(url=download_url, method="GET")
+    with urllib.request.urlopen(req, timeout=120) as response:
+        return response.read()
+
+
+def _sharepoint_children_url(drive_id: str, folder_path: str) -> str:
+    encoded_path = urllib.parse.quote(folder_path.strip("/"))
+    if encoded_path:
+        return f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{encoded_path}:/children?$top=999"
+    return f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root/children?$top=999"
+
+
+def _list_sharepoint_items_recursive(drive_id: str, folder_path: str, token: str) -> list[dict]:
+    items: list[dict] = []
+    queue = [folder_path]
+    while queue:
+        current_folder = queue.pop(0)
+        next_url = _sharepoint_children_url(drive_id, current_folder)
+        while next_url:
+            response = _graph_get(next_url, token)
+            for item in response.get("value", []):
+                if "folder" in item:
+                    child_path = item.get("parentReference", {}).get("path", "")
+                    child_name = item.get("name", "")
+                    relative = child_path.split("root:", 1)[-1].strip("/")
+                    next_path = f"{relative}/{child_name}".strip("/")
+                    queue.append(next_path)
+                    continue
+                items.append(item)
+            next_url = response.get("@odata.nextLink")
+    return items
+
+
+def load_sharepoint_documents() -> tuple[list[SourceDocument], dict]:
+    required = {
+        "SHAREPOINT_DRIVE_ID": SHAREPOINT_DRIVE_ID,
+    }
+    missing = [k for k, v in required.items() if not v]
+    if missing:
+        logger.error("Missing required SharePoint source variables: %s", ", ".join(missing))
+        return [], {}
+
+    token = _graph_token()
+    folder = SHAREPOINT_FOLDER_PATH or ""
+    logger.info("📂 Reading SharePoint documents from drive %s path '%s'", SHAREPOINT_DRIVE_ID, folder or "/")
+    items = _list_sharepoint_items_recursive(SHAREPOINT_DRIVE_ID, folder, token)
+    logger.info("Found %d SharePoint file item(s).", len(items))
+
+    docs: list[SourceDocument] = []
+    for item in items:
+        name = item.get("name", "")
+        if not _is_supported_text_name(name):
+            logger.warning("Skipping unsupported SharePoint file type: %s", name)
+            continue
+
+        download_url = item.get("@microsoft.graph.downloadUrl")
+        if not download_url:
+            logger.warning("Skipping %s because download URL is missing.", name)
+            continue
+
+        try:
+            raw = _download_sharepoint_file(download_url)
+        except Exception as exc:
+            logger.warning("Skipping SharePoint file %s due to download error: %s", name, exc)
+            continue
+
+        if not raw:
+            logger.warning("Skipping SharePoint file %s because it is empty.", name)
+            continue
+
+        text = _read_text_from_bytes(raw, name)
+        if not text:
+            continue
+
+        item_id = item.get("id", "")
+        parent_path = item.get("parentReference", {}).get("path", "")
+        source_name = f"{parent_path}/{name}".replace("/drive/root:", "").lstrip("/")
+        docs.append(
+            SourceDocument(
+                source_name=source_name or name,
+                document_id=item_id or name,
+                raw_bytes=raw,
+                text=text,
+                metadata={
+                    "sourceType": "sharepoint",
+                    "sharepointItemId": item_id,
+                    "sharepointDriveId": SHAREPOINT_DRIVE_ID,
+                    "sharepointPath": source_name,
+                    "sharepointLastModified": item.get("lastModifiedDateTime", ""),
+                    "sharepointSize": item.get("size"),
+                },
+            )
+        )
+
+    logger.info("Loaded %d SharePoint text document(s) for ingestion.", len(docs))
+    return docs, {}
 
 
 @retry(max_attempts=3, initial_delay=1.0)
@@ -556,46 +826,28 @@ def ensure_acl_fields_in_index() -> None:
         )
 
 
-def ingest_documents() -> None:
+def ingest_documents(source: str, documents_path: str, max_chars: int, overlap: int, batch_size: int) -> None:
     base_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.dirname(base_dir)
-    documents_folder = os.path.join(repo_root, "documents")
     run_ingestion_timestamp = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     global checksum_supported
+    if source == "folder":
+        full_documents_path = documents_path if os.path.isabs(documents_path) else os.path.join(repo_root, documents_path)
+        source_docs, _ = load_local_documents(full_documents_path)
+    else:
+        source_docs, _ = load_sharepoint_documents()
 
-    logger.info("📂 Documents folder: %s", documents_folder)
-
-    if not os.path.exists(documents_folder):
-        logger.error("Documents folder not found: %s", documents_folder)
-        return
-
-    files = os.listdir(documents_folder)
-    logger.info("📄 Files found: %s", files)
-    metadata_map = load_document_metadata(documents_folder)
     seen_checksums = set()
 
     documents_to_upload = []
     lineage_buffer = []
 
-    for filename in files:
-        if not filename.lower().endswith(".txt"):
-            logger.warning("Skipping unsupported format: %s", filename)
-            continue
-
-        doc_metadata = metadata_map.get(filename, {})
-        logger.info("🔍 Processing file: %s", filename)
-
-        filepath = os.path.join(documents_folder, filename)
-        try:
-            with open(filepath, "rb") as f:
-                raw = f.read()
-        except Exception as exc:
-            logger.warning("Skipping %s because file could not be read: %s", filename, exc)
-            continue
-
-        if not raw:
-            logger.warning("Skipping %s because file is empty.", filename)
-            continue
+    for source_doc in source_docs:
+        filename = source_doc.source_name
+        doc_metadata = source_doc.metadata
+        raw = source_doc.raw_bytes
+        text = source_doc.text
+        logger.info("🔍 Processing document: %s", filename)
 
         checksum = compute_checksum(raw)
         if checksum in seen_checksums:
@@ -618,19 +870,15 @@ def ingest_documents() -> None:
             logger.info("Skipping %s because duplicate checksum already exists in index (%s).", filename, checksum)
             continue
 
-        try:
-            text = raw.decode("utf-8")
-        except UnicodeDecodeError:
-            logger.warning("Skipping %s because file appears corrupted or not valid UTF-8 text.", filename)
-            continue
-        text = clean_text(text)
-
         logger.info("🧪 Text length: %d", len(text))
         if not text:
             logger.warning("Empty after cleaning. Skipping %s", filename)
             continue
 
         matter_id, matter_id_source = resolve_matter_id(filename, text, doc_metadata)
+        if not matter_id and DEFAULT_MATTER_ID:
+            matter_id = DEFAULT_MATTER_ID
+            matter_id_source = "default-env"
         if not matter_id:
             logger.warning("Skipping %s because matterId was not found in metadata, document text, or filename.", filename)
             continue
@@ -652,7 +900,7 @@ def ingest_documents() -> None:
             )
         logger.info("🔐 ACL resolved for %s: users=%s groups=%s", filename, allowed_users, allowed_groups)
 
-        chunks = chunk_text(text, max_chars=2000, overlap=200)
+        chunks = chunk_text(text, max_chars=max_chars, overlap=overlap)
         logger.info("🧠 Creating embeddings for %d chunk(s)...", len(chunks))
 
         try:
@@ -662,13 +910,14 @@ def ingest_documents() -> None:
             logger.error("Failed to create embeddings for %s: %s", filename, e)
             continue
 
-        document_id = (doc_metadata.get("documentId") or filename).strip() if isinstance(doc_metadata, dict) else filename
+        document_id = (doc_metadata.get("documentId") or source_doc.document_id or filename).strip() if isinstance(doc_metadata, dict) else filename
         document_version = (doc_metadata.get("documentVersion") or DOCUMENT_VERSION_DEFAULT).strip() if isinstance(doc_metadata, dict) else DOCUMENT_VERSION_DEFAULT
 
         for idx, (chunk_text_val, emb) in enumerate(zip(chunks, embeddings)):
+            chunk_id = f"{document_id}::chunk-{idx}"
             documents_to_upload.append(
                 {
-                    "id": str(uuid.uuid4()),
+                    "id": chunk_id,
                     "content": chunk_text_val,
                     "contentVector": emb,
                     "source": filename,
@@ -704,7 +953,6 @@ def ingest_documents() -> None:
         return
 
     logger.info("⬆️ Uploading to Azure Search in batches...")
-    batch_size = 100
     total = len(documents_to_upload)
     for i in range(0, total, batch_size):
         batch = documents_to_upload[i : i + batch_size]
@@ -719,9 +967,16 @@ def ingest_documents() -> None:
 
 
 if __name__ == "__main__":
+    args = parse_args()
     repo_root_for_indexing = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     create_versioned_index_if_needed(repo_root_for_indexing)
     validate_openai_access()
     validate_search_access()
     ensure_acl_fields_in_index()
-    ingest_documents()
+    ingest_documents(
+        source=args.source,
+        documents_path=args.documents_path,
+        max_chars=args.max_chars,
+        overlap=args.overlap,
+        batch_size=args.batch_size,
+    )
