@@ -44,6 +44,9 @@ param enableNetworking bool = environment == 'prod'
 @description('Deploy RBAC role assignments for the app managed identity (requires roleAssignments/write permissions).')
 param deployRoleAssignments bool = true
 
+@description('Enable retrieval diagnostics endpoint (must remain false in production unless explicitly needed).')
+param debugRagEnabled bool = false
+
 @description('Append a deterministic unique suffix to globally unique resource names (Search/OpenAI) to avoid naming collisions.')
 param useUniqueNames bool = false
 
@@ -151,6 +154,7 @@ module app './modules/appservice.bicep' = {
     requiredScope: 'access_as_user'
     bypassAuthInDevelopment: false
     bypassMatterAuthorizationInDevelopment: environment == 'dev'
+    debugRagEnabled: debugRagEnabled
   }
 }
 

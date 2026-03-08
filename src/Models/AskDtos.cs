@@ -22,6 +22,26 @@ public sealed class AskResponseDto
     // Keep legacy fields for backward compatibility.
     public string[] Sources { get; set; } = Array.Empty<string>();
     public int RetrievedChunkCount { get; set; }
+
+    // New enterprise response metadata.
+    public List<AskSourceDto> SourceMetadata { get; set; } = new();
+    public AskDiagnosticsSummaryDto? Diagnostics { get; set; }
+}
+
+public sealed class AskSourceDto
+{
+    public string SourceFile { get; set; } = string.Empty;
+    public string SourceId { get; set; } = string.Empty;
+    public string MatterId { get; set; } = string.Empty;
+    public string DocumentType { get; set; } = string.Empty;
+}
+
+public sealed class AskDiagnosticsSummaryDto
+{
+    public int RawRetrievalCount { get; set; }
+    public int FilteredRetrievalCount { get; set; }
+    public string FinalAnswerStatus { get; set; } = string.Empty;
+    public string? FallbackReason { get; set; }
 }
 
 public sealed class CitationDto
@@ -49,6 +69,7 @@ public sealed class RetrievedChunk
     public string Content { get; set; } = string.Empty;
     public string Snippet { get; set; } = string.Empty;
     public string? SourceFile { get; set; }
+    public string? SourceId { get; set; }
     public int? Page { get; set; }
     public double? Score { get; set; }
     public string? DocumentVersion { get; set; }
@@ -58,15 +79,37 @@ public sealed class RetrievedChunk
     public string? PracticeArea { get; set; }
     public string? Client { get; set; }
     public string? ConfidentialityLevel { get; set; }
+    public string? AccessGroup { get; set; }
+    public string? DocumentType { get; set; }
 }
 
 public sealed class RetrievalResult
 {
     public IReadOnlyList<RetrievedChunk> Chunks { get; init; } = Array.Empty<RetrievedChunk>();
     public string SearchFilter { get; init; } = string.Empty;
-    public int RetrievedChunkCount { get; init; }
+    public int RawRetrievedChunkCount { get; init; }
+    public int FilteredRetrievedChunkCount { get; init; }
     public double AverageScore { get; init; }
     public UserClaimsContext UserClaims { get; init; } = new();
+    public string? FallbackReason { get; init; }
+}
+
+public sealed class PromptContext
+{
+    public string SystemPrompt { get; init; } = string.Empty;
+    public string UserPrompt { get; init; } = string.Empty;
+    public string ContextPreview { get; init; } = string.Empty;
+}
+
+public sealed class RetrievalDebugResponseDto
+{
+    public string Query { get; set; } = string.Empty;
+    public UserClaimsContext User { get; set; } = new();
+    public int RawRetrievalCount { get; set; }
+    public int FilteredRetrievalCount { get; set; }
+    public List<AskSourceDto> Sources { get; set; } = new();
+    public string PromptContextPreview { get; set; } = string.Empty;
+    public string? FallbackReason { get; set; }
 }
 
 public sealed class ConversationMessage
@@ -100,7 +143,9 @@ public sealed class ChatRequest
 
 public sealed class AskAuditRecord
 {
+    public string CorrelationId { get; init; } = string.Empty;
     public string UserId { get; init; } = "anonymous";
+    public string ClaimsSummary { get; init; } = string.Empty;
     public string Question { get; init; } = string.Empty;
     public string RewrittenQuery { get; init; } = string.Empty;
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
@@ -111,6 +156,9 @@ public sealed class AskAuditRecord
     public int PromptTokens { get; init; }
     public int CompletionTokens { get; init; }
     public double EstimatedCost { get; init; }
+    public int RetrievalCount { get; init; }
+    public int FilteredCount { get; init; }
+    public string FinalAnswerStatus { get; init; } = "error";
 }
 
 public sealed class PromptSecurityResult

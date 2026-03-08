@@ -4,7 +4,7 @@ namespace LegalRagApp.Prompts;
 
 public static class PromptOutputFactory
 {
-    public const string InsufficientContextSummary = "I cannot find this information in the provided materials.";
+    public const string InsufficientContextSummary = "Insufficient information in approved documents.";
 
     public static StructuredAnswerDto BuildInsufficientContextFallback()
     {

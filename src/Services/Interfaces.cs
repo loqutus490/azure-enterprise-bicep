@@ -7,9 +7,21 @@ namespace LegalRagApp.Services;
 public interface IRetrievalService
 {
     Task<RetrievalResult> RetrieveAsync(AskRequestDto request, ClaimsPrincipal user, CancellationToken cancellationToken);
+    Task<RetrievalDebugResponseDto> BuildDebugAsync(AskRequestDto request, ClaimsPrincipal user, CancellationToken cancellationToken);
+}
+
+public interface IAuthorizationFilter
+{
+    UserClaimsContext GetUserClaims(ClaimsPrincipal user);
+    bool IsMatterAuthorized(UserClaimsContext userClaims, string matterId);
+    IReadOnlyList<RetrievedChunk> FilterAuthorizedChunks(IReadOnlyList<RetrievedChunk> chunks, UserClaimsContext userClaims);
     string BuildSecurityFilter(UserClaimsContext userClaims);
     string BuildAclFilter(UserClaimsContext userClaims);
-    UserClaimsContext GetUserClaims(ClaimsPrincipal user);
+}
+
+public interface IPromptBuilder
+{
+    PromptContext BuildPrompt(string question, IReadOnlyList<RetrievedChunk> chunks, IReadOnlyList<ConversationMessage> history);
 }
 
 public interface IChatService
