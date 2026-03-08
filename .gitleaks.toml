@@ -1,0 +1,8 @@
+title = "Legal RAG gitleaks config"
+
+[allowlist]
+description = "Historic commits that contained rotated local test secrets before secret hygiene hardening."
+commits = [
+  "36c9ef1b0d6304ea9af676992304924e558edd6c",
+  "09299c689b0f27e1b098d591031b87e361e839a6",
+]
