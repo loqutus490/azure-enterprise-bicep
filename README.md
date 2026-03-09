@@ -298,3 +298,55 @@ Configure these repository/environment variables in GitHub:
 | `botEntraAppId` | Bot app client ID (enables Teams bot) | `''` (disabled) |
 | `enableNetworking` | VNet + private endpoints | `true` in prod |
 | `deployRoleAssignments` | Create OpenAI/Search RBAC assignments from IaC (requires `Microsoft.Authorization/roleAssignments/write`) | `true` |
+
+## Enterprise RAG request flow (`/ask`)
+
+1. `AskController` validates auth and input.
+2. `IQueryRewriteService` rewrites the user query.
+3. `IRetrievalService` retrieves candidate chunks from Azure AI Search.
+4. `IAuthorizationFilter` enforces document-level security (`matterId`, `accessGroup`, claims).
+5. `IPromptBuilder` constructs a grounded prompt from authorized chunks only.
+6. `IChatService` generates a structured response.
+7. Response includes answer + citation/source metadata; fallback is used when context is insufficient.
+8. Structured audit events are emitted for Azure Monitor / App Insights ingestion.
+
+## Security and authorization model
+
+- **Default auth**: Entra ID JWT validation (`ApiAccessPolicy`) with required delegated scope/app role.
+- **Matter authorization**: request `matterId` must be in user permitted-matter claims.
+- **Document authorization**: retrieval results are filtered by metadata (`matterId`, `accessGroup`) and claims (`groups`, identity).
+- **Grounded fallback**: if context is missing/filtered, API returns:
+  - `"Insufficient information in approved documents."`
+
+## Retrieval diagnostics mode
+
+Protected diagnostics endpoint:
+- `POST /debug/retrieval`
+
+Enable only when explicitly needed:
+- `DebugRag:Enabled=true` (or env var `DEBUG_RAG=true`)
+
+Diagnostics returns compact retrieval metadata only (query, claims summary, counts, source IDs/files, matter/document metadata, prompt preview, fallback reason), and intentionally avoids full document-body leakage.
+
+## Local testing
+
+```bash
+dotnet build legal-rag-platform.sln
+dotnet test legal-rag-platform.sln
+```
+
+Integration tests use fake test doubles (retrieval/chat/auth identity simulation) and do not require live Azure OpenAI or Azure Search.
+
+## Deployment hardening notes
+
+- App Service uses **system-assigned managed identity** and RBAC assignments for Azure OpenAI/Search access.
+- Infrastructure supports **private networking** and private endpoints in production mode.
+- `DebugRag` is wired as an explicit IaC/app setting toggle and defaults to `false`.
+- Keep production and development parameters separated (`infra/params/dev.bicepparam`, `infra/params/prod.bicepparam`).
+
+## Roadmap
+
+- Entra ID group-overage handling and Graph-based group expansion.
+- Per-document legal hold and retention policy enforcement.
+- Signed answer provenance bundles for eDiscovery workflows.
+- Policy-as-code authorization rules using externalized entitlement engine.

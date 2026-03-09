@@ -33,6 +33,8 @@ param requiredScope string = 'user_impersonation'
 param bypassAuthInDevelopment bool = false
 @description('Allow bypassing matter-level claim checks in Development only.')
 param bypassMatterAuthorizationInDevelopment bool = true
+@description('Enable protected retrieval diagnostics endpoint.')
+param debugRagEnabled bool = false
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = if (empty(existingAppServicePlanResourceId)) {
   name: 'plan-${name}'
@@ -135,6 +137,14 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'Authorization__BypassMatterAuthorizationInDevelopment'
           value: string(bypassMatterAuthorizationInDevelopment)
+        }
+        {
+          name: 'DebugRag__Enabled'
+          value: string(debugRagEnabled)
+        }
+        {
+          name: 'DEBUG_RAG'
+          value: string(debugRagEnabled)
         }
       ]
     }

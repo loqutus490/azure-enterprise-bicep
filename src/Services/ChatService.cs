@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Azure.AI.OpenAI;
 using LegalRagApp.Models;
@@ -12,8 +11,9 @@ public sealed class ChatService : IChatService
     private readonly ILogger<ChatService> _logger;
     private readonly Dictionary<string, double> _pricingPer1kTokens;
     private readonly double _defaultCostPer1kTokens;
+    private readonly IPromptBuilder _promptBuilder;
 
-    public ChatService(AzureOpenAIClient openAiClient, IConfiguration configuration, ILogger<ChatService> logger)
+    public ChatService(AzureOpenAIClient openAiClient, IConfiguration configuration, IPromptBuilder promptBuilder, ILogger<ChatService> logger)
     {
         var chatDeployment = configuration["AzureOpenAI:Deployment"];
         if (string.IsNullOrWhiteSpace(chatDeployment))
@@ -22,6 +22,7 @@ public sealed class ChatService : IChatService
         _chatClient = openAiClient.GetChatClient(chatDeployment);
         ModelUsed = chatDeployment;
         _logger = logger;
+        _promptBuilder = promptBuilder;
         _defaultCostPer1kTokens = configuration.GetValue<double?>("Costing:DefaultUsdPer1kTokens") ?? 0.005d;
         _pricingPer1kTokens = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
         {
@@ -35,13 +36,12 @@ public sealed class ChatService : IChatService
 
     public async Task<ChatGenerationResult> GenerateStructuredAnswerAsync(ChatRequest request, CancellationToken cancellationToken)
     {
-        var contextBlock = BuildContextBlock(request.RetrievedChunks);
-        var historyBlock = BuildHistoryBlock(request.ConversationHistory);
+        var prompt = _promptBuilder.BuildPrompt(request.Question, request.RetrievedChunks, request.ConversationHistory);
 
         var messages = new List<OpenAI.Chat.ChatMessage>
         {
-            new OpenAI.Chat.SystemChatMessage(PromptTemplates.StructuredLegalAnswer),
-            new OpenAI.Chat.UserChatMessage($"Conversation history:\n{historyBlock}\n\nRetrieved context:\n{contextBlock}\n\nQuestion:\n{request.Question}")
+            new OpenAI.Chat.SystemChatMessage(prompt.SystemPrompt),
+            new OpenAI.Chat.UserChatMessage(prompt.UserPrompt)
         };
 
         var response = await _chatClient.CompleteChatAsync(messages, cancellationToken: cancellationToken);
@@ -105,37 +105,6 @@ public sealed class ChatService : IChatService
         };
     }
 
-    private static string BuildContextBlock(IReadOnlyList<RetrievedChunk> chunks)
-    {
-        if (chunks.Count == 0)
-            return "No retrieved documents.";
-
-        var sb = new StringBuilder();
-        for (var i = 0; i < chunks.Count; i++)
-        {
-            var chunk = chunks[i];
-            sb.AppendLine($"[Chunk {i + 1}]");
-            sb.AppendLine($"Document: {chunk.SourceFile ?? "unknown"}");
-            sb.AppendLine($"DocumentId: {chunk.DocumentId ?? chunk.Checksum ?? "unknown"}");
-            sb.AppendLine($"Page: {(chunk.Page?.ToString() ?? "unknown")}");
-            sb.AppendLine($"Version: {chunk.DocumentVersion ?? "unknown"}");
-            sb.AppendLine($"IngestedAt: {(chunk.IngestionTimestamp?.ToString("o") ?? "unknown")}");
-            sb.AppendLine($"Excerpt: {chunk.Snippet}");
-            sb.AppendLine($"Content: {chunk.Content}");
-            sb.AppendLine();
-        }
-
-        return sb.ToString();
-    }
-
-    private static string BuildHistoryBlock(IReadOnlyList<ConversationMessage> history)
-    {
-        if (history.Count == 0)
-            return "(none)";
-
-        var lines = history.Select(m => $"{m.Role}: {m.Content}");
-        return string.Join('\n', lines);
-    }
 
     private static StructuredAnswerDto? TryParseStructuredJson(string raw)
     {

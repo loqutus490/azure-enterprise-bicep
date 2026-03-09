@@ -91,6 +91,8 @@ builder.Services.AddSingleton(sp =>
 });
 
 builder.Services.AddSingleton<IIndexVersionService, IndexVersionService>();
+builder.Services.AddSingleton<IAuthorizationFilter, AuthorizationFilter>();
+builder.Services.AddSingleton<IPromptBuilder, PromptBuilder>();
 builder.Services.AddSingleton<IRetrievalService, RetrievalService>();
 builder.Services.AddSingleton<IChatService, ChatService>();
 builder.Services.AddSingleton<IPromptSecurityService, PromptSecurityService>();
