@@ -239,9 +239,12 @@ public sealed class RetrievalService : IRetrievalService
     private static bool TryExtractMissingField(RequestFailedException ex, out string fieldName)
     {
         fieldName = string.Empty;
-        var match = Regex.Match(ex.Message, "property '([^']+)' does not exist", RegexOptions.IgnoreCase);
+        var match = Regex.Match(
+            ex.Message,
+            @"(?:property '([^']+)' does not exist|Could not find a property named '([^']+)')",
+            RegexOptions.IgnoreCase);
         if (!match.Success) return false;
-        fieldName = match.Groups[1].Value;
+        fieldName = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
         return !string.IsNullOrWhiteSpace(fieldName);
     }
 

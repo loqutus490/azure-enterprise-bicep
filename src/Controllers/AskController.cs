@@ -140,7 +140,7 @@ public sealed class AskController : ControllerBase
                 requestTraceId,
                 request.ConversationId,
                 request.MatterId,
-                retrieval.RetrievedChunkCount,
+                retrieval.FilteredRetrievedChunkCount,
                 retrieval.AverageScore,
                 retrievalStopwatch.ElapsedMilliseconds);
 
@@ -242,7 +242,7 @@ public sealed class AskController : ControllerBase
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .Cast<string>()
                     .ToArray(),
-                RetrievedChunkCount = retrieval.RetrievedChunkCount
+                RetrievedChunkCount = retrieval.FilteredRetrievedChunkCount
             };
 
             HttpContext.Items[AuditLoggingMiddleware.AuditRecordItemKey] = new AskAuditRecord
@@ -266,7 +266,7 @@ public sealed class AskController : ControllerBase
                 request.ConversationId,
                 request.MatterId,
                 retrieval.SearchFilter,
-                retrieval.RetrievedChunkCount,
+                retrieval.FilteredRetrievedChunkCount,
                 response.Confidence,
                 stopwatch.ElapsedMilliseconds);
 

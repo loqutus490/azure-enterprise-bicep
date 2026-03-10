@@ -115,47 +115,13 @@ public sealed class AuthorizationFilter : IAuthorizationFilter
 
         if (trimmed.StartsWith("[", StringComparison.Ordinal) || trimmed.StartsWith("{", StringComparison.Ordinal))
         {
-            try
+            var parsedFromJson = TryParseMatterIdsFromJson(trimmed);
+            if (parsedFromJson.Count > 0)
             {
-                using var doc = JsonDocument.Parse(trimmed);
-                var root = doc.RootElement;
+                foreach (var matter in parsedFromJson)
+                    yield return matter;
 
-                if (root.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var item in root.EnumerateArray())
-                    {
-                        if (item.ValueKind == JsonValueKind.String)
-                        {
-                            var value = item.GetString();
-                            if (!string.IsNullOrWhiteSpace(value))
-                                yield return value.Trim();
-                        }
-                    }
-                    yield break;
-                }
-
-                if (root.ValueKind == JsonValueKind.Object)
-                {
-                    foreach (var propName in new[] { "matters", "matterIds", "ids" })
-                    {
-                        if (root.TryGetProperty(propName, out var property) && property.ValueKind == JsonValueKind.Array)
-                        {
-                            foreach (var item in property.EnumerateArray())
-                            {
-                                if (item.ValueKind == JsonValueKind.String)
-                                {
-                                    var value = item.GetString();
-                                    if (!string.IsNullOrWhiteSpace(value))
-                                        yield return value.Trim();
-                                }
-                            }
-                            yield break;
-                        }
-                    }
-                }
-            }
-            catch
-            {
+                yield break;
             }
         }
 
@@ -164,6 +130,59 @@ public sealed class AuthorizationFilter : IAuthorizationFilter
             if (!string.IsNullOrWhiteSpace(token))
                 yield return token.Trim();
         }
+    }
+
+    private static List<string> TryParseMatterIdsFromJson(string json)
+    {
+        var parsed = new List<string>();
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in root.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.String)
+                        continue;
+
+                    var value = item.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                        parsed.Add(value.Trim());
+                }
+
+                return parsed;
+            }
+
+            if (root.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var propName in new[] { "matters", "matterIds", "ids" })
+                {
+                    if (!root.TryGetProperty(propName, out var property) || property.ValueKind != JsonValueKind.Array)
+                        continue;
+
+                    foreach (var item in property.EnumerateArray())
+                    {
+                        if (item.ValueKind != JsonValueKind.String)
+                            continue;
+
+                        var value = item.GetString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                            parsed.Add(value.Trim());
+                    }
+
+                    if (parsed.Count > 0)
+                        break;
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return parsed;
     }
 
     private static string EscapeODataString(string input) => input.Replace("'", "''", StringComparison.Ordinal);
