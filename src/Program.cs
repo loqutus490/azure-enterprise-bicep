@@ -6,6 +6,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Identity.Web;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddApplicationInsightsTelemetry(options =>
+{
+    options.ConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+});
 
 // Default to true so that tests and deployments without explicit toggles still exercise auth.
 var enableAzureAd = builder.Configuration.GetValue<bool?>("Authorization:EnableAzureAd") ?? true;
