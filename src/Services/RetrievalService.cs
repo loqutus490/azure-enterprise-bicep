@@ -21,7 +21,7 @@ public sealed class RetrievalService : IRetrievalService
     private readonly int? _embeddingDimensions;
     private readonly List<string> _baseSelectFields =
     [
-        "id", "content", "source", "sourceFile", "sourceId", "page", "matterId", "practiceArea", "client",
+        "id", "content", "source", "sourceId", "page", "matterId", "practiceArea", "client",
         "confidentialityLevel", "documentVersion", "ingestionTimestamp", "checksum", "accessGroup", "documentType"
     ];
     private readonly HashSet<string> _missingSelectFields = new(StringComparer.OrdinalIgnoreCase);
