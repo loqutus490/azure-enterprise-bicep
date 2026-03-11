@@ -20,6 +20,10 @@ local.env
 .DS_Store
 Thumbs.db
 
+# Test results
+TestResults/
+*.trx
+
 # Logs
 *.log
 

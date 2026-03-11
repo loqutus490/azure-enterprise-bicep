@@ -177,6 +177,20 @@ if (!bypassAuthInDevelopment)
 
 app.MapControllers();
 
+var debugRagEnabled = app.Configuration.GetValue<bool>("DebugRag:Enabled");
+if (debugRagEnabled)
+{
+    app.MapPost("/debug/retrieval", async (
+        LegalRagApp.Models.AskRequestDto request,
+        HttpContext httpContext,
+        IRetrievalService retrievalService,
+        CancellationToken cancellationToken) =>
+    {
+        var result = await retrievalService.BuildDebugAsync(request, httpContext.User, cancellationToken);
+        return Results.Ok(result);
+    });
+}
+
 app.Run();
 
 public partial class Program { }
