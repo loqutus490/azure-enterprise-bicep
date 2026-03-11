@@ -10,3 +10,5 @@ param searchIndexName = 'agent13-index'
 param entraClientId = 'd096fae4-910b-439b-84f1-5bb7966cc705'
 param allowedClientApplications = []
 // param botEntraAppId = '<your-bot-app-client-id>'
+
+param enableNetworking = false
