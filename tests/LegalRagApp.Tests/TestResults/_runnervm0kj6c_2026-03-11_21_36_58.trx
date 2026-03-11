@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="ece40449-75da-4384-96ea-245bff91d47b" name="@runnervm0kj6c 2026-03-11 21:36:58" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-03-11T21:36:58.1242941+00:00" queuing="2026-03-11T21:36:58.1242941+00:00" start="2026-03-11T21:36:56.2727802+00:00" finish="2026-03-11T21:37:02.1271057+00:00" />
+  <TestSettings name="default" id="ce2936dd-2827-471c-a6dc-3ef9c09dd17b">
+    <Deployment runDeploymentRoot="_runnervm0kj6c_2026-03-11_21_36_58" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="ae0a6b60-e103-4315-9064-f33a58062429" testId="fc2ac635-f64e-ce5b-54b0-ede76b3638da" testName="LegalRagApp.Tests.AclFilterTests.GetUserClaims_ExtractsEmail_FromPreferredUsername" computerName="runnervm0kj6c" duration="00:00:00.0324536" startTime="2026-03-11T21:37:02.0554107+00:00" endTime="2026-03-11T21:37:02.0554109+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ae0a6b60-e103-4315-9064-f33a58062429" />
+    <UnitTestResult executionId="348fb2df-d929-4818-8d79-1c90a7862f66" testId="78bf82ec-fc37-9ecc-7236-fefab2901db3" testName="LegalRagApp.Tests.AclFilterTests.FilterAuthorizedChunks_UsesCaseInsensitiveGroupMatching" computerName="runnervm0kj6c" duration="00:00:00.0424939" startTime="2026-03-11T21:37:01.9910703+00:00" endTime="2026-03-11T21:37:01.9910706+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="348fb2df-d929-4818-8d79-1c90a7862f66" />
+    <UnitTestResult executionId="58f4c525-e11d-4f56-9c13-e41608da4d58" testId="1b46b358-0ae4-1454-f722-0e5fd5b87e24" testName="LegalRagApp.Tests.PromptGroundingTests.EnrichCitations_BackfillsDocumentIdFromRetrievedChunks" computerName="runnervm0kj6c" duration="00:00:00.0054273" startTime="2026-03-11T21:36:57.4522207+00:00" endTime="2026-03-11T21:36:57.4522209+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="58f4c525-e11d-4f56-9c13-e41608da4d58" />
+    <UnitTestResult executionId="fc3620b0-e573-4e75-94f7-f343b305c699" testId="5f37d4ef-436f-d764-99a6-bc084d9c9d4f" testName="LegalRagApp.Tests.AclFilterTests.FilterAuthorizedChunks_KeepsOnlyChunksForPermittedMatter" computerName="runnervm0kj6c" duration="00:00:04.4162818" startTime="2026-03-11T21:37:01.8582503+00:00" endTime="2026-03-11T21:37:01.8582505+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fc3620b0-e573-4e75-94f7-f343b305c699" />
+    <UnitTestResult executionId="712e8b6a-5c95-4222-994c-a3f0c49c7fcf" testId="6caea0a0-665a-4217-48c5-0287286f9c18" testName="LegalRagApp.Tests.AclFilterTests.FilterAuthorizedChunks_FiltersGroupRestrictedChunks_WhenGroupMissing" computerName="runnervm0kj6c" duration="00:00:00.0580838" startTime="2026-03-11T21:37:01.9164777+00:00" endTime="2026-03-11T21:37:01.9164780+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="712e8b6a-5c95-4222-994c-a3f0c49c7fcf" />
+    <UnitTestResult executionId="b5f90304-12fb-4644-9ecb-2ab705c7372d" testId="a2c8c987-7831-ff3c-2c60-5deb13782a6c" testName="LegalRagApp.Tests.PromptGroundingTests.BuildInsufficientContextFallback_ReturnsStructuredLowConfidenceResponse" computerName="runnervm0kj6c" duration="00:00:00.0009193" startTime="2026-03-11T21:36:57.4529298+00:00" endTime="2026-03-11T21:36:57.4529299+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b5f90304-12fb-4644-9ecb-2ab705c7372d" />
+    <UnitTestResult executionId="5f9371cf-bc1f-4797-a122-77089d5406c7" testId="1fdf99b3-9a9a-1862-8a76-79af8371e4bc" testName="LegalRagApp.Tests.AclFilterTests.BuildAclFilter_CombinesIdentityAndGroups" computerName="runnervm0kj6c" duration="00:00:00.0316597" startTime="2026-03-11T21:37:02.0228342+00:00" endTime="2026-03-11T21:37:02.0228345+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5f9371cf-bc1f-4797-a122-77089d5406c7" />
+    <UnitTestResult executionId="f7e8f0df-44b0-4805-8fa6-a4cfcc0b5aa7" testId="1084292e-81b0-100a-6a2d-88e6f82f3cb7" testName="LegalRagApp.Tests.AclFilterTests.BuildSecurityFilter_UsesPermittedMatters" computerName="runnervm0kj6c" duration="00:00:00.0318301" startTime="2026-03-11T21:37:01.9484948+00:00" endTime="2026-03-11T21:37:01.9484951+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f7e8f0df-44b0-4805-8fa6-a4cfcc0b5aa7" />
+    <UnitTestResult executionId="4228ebd8-083b-43d6-9545-8fb329571d36" testId="145026f7-478c-bd19-37dd-45dd30592f5a" testName="LegalRagApp.Tests.PromptGroundingTests.StructuredLegalAnswer_Template_RequiresStrictGroundingAndDocumentIds" computerName="runnervm0kj6c" duration="00:00:00.0019876" startTime="2026-03-11T21:36:57.4470838+00:00" endTime="2026-03-11T21:36:57.4471255+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4228ebd8-083b-43d6-9545-8fb329571d36" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="LegalRagApp.Tests.AclFilterTests.GetUserClaims_ExtractsEmail_FromPreferredUsername" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="fc2ac635-f64e-ce5b-54b0-ede76b3638da">
+      <Execution id="ae0a6b60-e103-4315-9064-f33a58062429" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.AclFilterTests" name="GetUserClaims_ExtractsEmail_FromPreferredUsername" />
+    </UnitTest>
+    <UnitTest name="LegalRagApp.Tests.AclFilterTests.FilterAuthorizedChunks_UsesCaseInsensitiveGroupMatching" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="78bf82ec-fc37-9ecc-7236-fefab2901db3">
+      <Execution id="348fb2df-d929-4818-8d79-1c90a7862f66" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.AclFilterTests" name="FilterAuthorizedChunks_UsesCaseInsensitiveGroupMatching" />
+    </UnitTest>
+    <UnitTest name="LegalRagApp.Tests.AclFilterTests.BuildSecurityFilter_UsesPermittedMatters" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="1084292e-81b0-100a-6a2d-88e6f82f3cb7">
+      <Execution id="f7e8f0df-44b0-4805-8fa6-a4cfcc0b5aa7" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.AclFilterTests" name="BuildSecurityFilter_UsesPermittedMatters" />
+    </UnitTest>
+    <UnitTest name="LegalRagApp.Tests.PromptGroundingTests.EnrichCitations_BackfillsDocumentIdFromRetrievedChunks" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="1b46b358-0ae4-1454-f722-0e5fd5b87e24">
+      <Execution id="58f4c525-e11d-4f56-9c13-e41608da4d58" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.PromptGroundingTests" name="EnrichCitations_BackfillsDocumentIdFromRetrievedChunks" />
+    </UnitTest>
+    <UnitTest name="LegalRagApp.Tests.AclFilterTests.BuildAclFilter_CombinesIdentityAndGroups" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="1fdf99b3-9a9a-1862-8a76-79af8371e4bc">
+      <Execution id="5f9371cf-bc1f-4797-a122-77089d5406c7" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.AclFilterTests" name="BuildAclFilter_CombinesIdentityAndGroups" />
+    </UnitTest>
+    <UnitTest name="LegalRagApp.Tests.AclFilterTests.FilterAuthorizedChunks_FiltersGroupRestrictedChunks_WhenGroupMissing" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="6caea0a0-665a-4217-48c5-0287286f9c18">
+      <Execution id="712e8b6a-5c95-4222-994c-a3f0c49c7fcf" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.AclFilterTests" name="FilterAuthorizedChunks_FiltersGroupRestrictedChunks_WhenGroupMissing" />
+    </UnitTest>
+    <UnitTest name="LegalRagApp.Tests.PromptGroundingTests.StructuredLegalAnswer_Template_RequiresStrictGroundingAndDocumentIds" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="145026f7-478c-bd19-37dd-45dd30592f5a">
+      <Execution id="4228ebd8-083b-43d6-9545-8fb329571d36" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.PromptGroundingTests" name="StructuredLegalAnswer_Template_RequiresStrictGroundingAndDocumentIds" />
+    </UnitTest>
+    <UnitTest name="LegalRagApp.Tests.PromptGroundingTests.BuildInsufficientContextFallback_ReturnsStructuredLowConfidenceResponse" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="a2c8c987-7831-ff3c-2c60-5deb13782a6c">
+      <Execution id="b5f90304-12fb-4644-9ecb-2ab705c7372d" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.PromptGroundingTests" name="BuildInsufficientContextFallback_ReturnsStructuredLowConfidenceResponse" />
+    </UnitTest>
+    <UnitTest name="LegalRagApp.Tests.AclFilterTests.FilterAuthorizedChunks_KeepsOnlyChunksForPermittedMatter" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="5f37d4ef-436f-d764-99a6-bc084d9c9d4f">
+      <Execution id="fc3620b0-e573-4e75-94f7-f343b305c699" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.AclFilterTests" name="FilterAuthorizedChunks_KeepsOnlyChunksForPermittedMatter" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="fc2ac635-f64e-ce5b-54b0-ede76b3638da" executionId="ae0a6b60-e103-4315-9064-f33a58062429" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="78bf82ec-fc37-9ecc-7236-fefab2901db3" executionId="348fb2df-d929-4818-8d79-1c90a7862f66" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1b46b358-0ae4-1454-f722-0e5fd5b87e24" executionId="58f4c525-e11d-4f56-9c13-e41608da4d58" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5f37d4ef-436f-d764-99a6-bc084d9c9d4f" executionId="fc3620b0-e573-4e75-94f7-f343b305c699" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6caea0a0-665a-4217-48c5-0287286f9c18" executionId="712e8b6a-5c95-4222-994c-a3f0c49c7fcf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a2c8c987-7831-ff3c-2c60-5deb13782a6c" executionId="b5f90304-12fb-4644-9ecb-2ab705c7372d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1fdf99b3-9a9a-1862-8a76-79af8371e4bc" executionId="5f9371cf-bc1f-4797-a122-77089d5406c7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1084292e-81b0-100a-6a2d-88e6f82f3cb7" executionId="f7e8f0df-44b0-4805-8fa6-a4cfcc0b5aa7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="145026f7-478c-bd19-37dd-45dd30592f5a" executionId="4228ebd8-083b-43d6-9545-8fb329571d36" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="9" executed="9" passed="9" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.4.5+1caef2f33e (64-bit .NET 8.0.24)
+[xUnit.net 00:00:00.72]   Discovering: LegalRagApp.Tests
+[xUnit.net 00:00:00.75]   Discovered:  LegalRagApp.Tests
+[xUnit.net 00:00:00.75]   Starting:    LegalRagApp.Tests
+warn: LegalRagApp[0]
+      Authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.
+[xUnit.net 00:00:05.41]   Finished:    LegalRagApp.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

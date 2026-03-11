@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="19e159ee-7f52-44dd-962a-d9290334667f" name="@runnervm0kj6c 2026-03-11 21:37:13" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-03-11T21:37:13.6493582+00:00" queuing="2026-03-11T21:37:13.6493583+00:00" start="2026-03-11T21:37:10.0232842+00:00" finish="2026-03-11T21:37:13.8837869+00:00" />
+  <TestSettings name="default" id="d196ebde-ae46-4a83-8f2f-73d93b17084d">
+    <Deployment runDeploymentRoot="_runnervm0kj6c_2026-03-11_21_37_13" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="a4f0e1fc-4c12-4849-9ee9-de44819e4bb0" testId="b4814dc2-4fe7-0048-ee10-e4cae27c0ed0" testName="LegalRagApp.Tests.AuthBypassIntegrationTests.Ask_ReturnsUnauthorized_WithoutToken_WhenDevelopmentBypassDisabled" computerName="runnervm0kj6c" duration="00:00:00.1719961" startTime="2026-03-11T21:37:13.7930407+00:00" endTime="2026-03-11T21:37:13.7930409+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a4f0e1fc-4c12-4849-9ee9-de44819e4bb0" />
+    <UnitTestResult executionId="517ee35a-f3bf-48e3-a14e-152efd586893" testId="795e3dd4-d188-70ad-8ccd-232a8388779f" testName="LegalRagApp.Tests.AuthBypassIntegrationTests.Ask_ReturnsBadRequest_WithoutToken_WhenDevelopmentBypassEnabled" computerName="runnervm0kj6c" duration="00:00:02.4368981" startTime="2026-03-11T21:37:13.6200287+00:00" endTime="2026-03-11T21:37:13.6200616+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="517ee35a-f3bf-48e3-a14e-152efd586893" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="LegalRagApp.Tests.AuthBypassIntegrationTests.Ask_ReturnsUnauthorized_WithoutToken_WhenDevelopmentBypassDisabled" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="b4814dc2-4fe7-0048-ee10-e4cae27c0ed0">
+      <Execution id="a4f0e1fc-4c12-4849-9ee9-de44819e4bb0" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.AuthBypassIntegrationTests" name="Ask_ReturnsUnauthorized_WithoutToken_WhenDevelopmentBypassDisabled" />
+    </UnitTest>
+    <UnitTest name="LegalRagApp.Tests.AuthBypassIntegrationTests.Ask_ReturnsBadRequest_WithoutToken_WhenDevelopmentBypassEnabled" storage="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/legalragapp.tests/bin/debug/net8.0/legalragapp.tests.dll" id="795e3dd4-d188-70ad-8ccd-232a8388779f">
+      <Execution id="517ee35a-f3bf-48e3-a14e-152efd586893" />
+      <TestMethod codeBase="/home/runner/work/azure-enterprise-bicep/azure-enterprise-bicep/tests/LegalRagApp.Tests/bin/Debug/net8.0/LegalRagApp.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="LegalRagApp.Tests.AuthBypassIntegrationTests" name="Ask_ReturnsBadRequest_WithoutToken_WhenDevelopmentBypassEnabled" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="b4814dc2-4fe7-0048-ee10-e4cae27c0ed0" executionId="a4f0e1fc-4c12-4849-9ee9-de44819e4bb0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="795e3dd4-d188-70ad-8ccd-232a8388779f" executionId="517ee35a-f3bf-48e3-a14e-152efd586893" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="2" executed="2" passed="2" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.4.5+1caef2f33e (64-bit .NET 8.0.24)
+[xUnit.net 00:00:00.71]   Discovering: LegalRagApp.Tests
+[xUnit.net 00:00:00.73]   Discovered:  LegalRagApp.Tests
+[xUnit.net 00:00:00.74]   Starting:    LegalRagApp.Tests
+warn: LegalRagApp[0]
+      Authorization bypass is enabled for Development. Do not enable this outside local debugging.
+warn: LegalRagApp[0]
+      Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.
+info: LegalRagApp.Tests.TestAuthHandler[7]
+      Test was not authenticated. Failure message: Missing X-Test-User header.
+warn: LegalRagApp[0]
+      Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.
+info: LegalRagApp.Tests.TestAuthHandler[7]
+      Test was not authenticated. Failure message: Missing X-Test-User header.
+[xUnit.net 00:00:03.40]   Finished:    LegalRagApp.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>
