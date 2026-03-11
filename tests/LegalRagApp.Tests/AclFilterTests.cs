@@ -59,6 +59,80 @@ public class AclFilterTests
         Assert.Contains("MATTER-002", filter);
     }
 
+    [Fact]
+    public async Task FilterAuthorizedChunks_KeepsOnlyChunksForPermittedMatter()
+    {
+        await using var factory = new LegalRagAppFactory("Development", bypassAuthInDevelopment: true);
+        var svc = factory.Services.GetRequiredService<IAuthorizationFilter>();
+
+        var userClaims = new UserClaimsContext
+        {
+            PermittedMatters = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "MATTER-001" },
+            Groups = ["team-a"]
+        };
+
+        var chunks = new List<RetrievedChunk>
+        {
+            new() { MatterId = "MATTER-001", AccessGroup = "team-a", DocumentType = "contract", SourceFile = "authorized.txt" },
+            new() { MatterId = "MATTER-002", AccessGroup = "team-a", DocumentType = "contract", SourceFile = "unauthorized.txt" }
+        };
+
+        var filtered = svc.FilterAuthorizedChunks(chunks, userClaims);
+
+        Assert.Single(filtered);
+        Assert.Equal("authorized.txt", filtered[0].SourceFile);
+    }
+
+    [Fact]
+    public async Task FilterAuthorizedChunks_FiltersGroupRestrictedChunks_WhenGroupMissing()
+    {
+        await using var factory = new LegalRagAppFactory("Development", bypassAuthInDevelopment: true);
+        var svc = factory.Services.GetRequiredService<IAuthorizationFilter>();
+
+        var userClaims = new UserClaimsContext
+        {
+            PermittedMatters = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "MATTER-001" },
+            Groups = ["litigation"]
+        };
+
+        var chunks = new List<RetrievedChunk>
+        {
+            new() { MatterId = "MATTER-001", AccessGroup = "litigation", DocumentType = "contract", SourceFile = "group-match.txt" },
+            new() { MatterId = "MATTER-001", AccessGroup = "tax", DocumentType = "contract", SourceFile = "group-miss.txt" },
+            new() { MatterId = "MATTER-001", AccessGroup = "litigation", SourceFile = "missing-doc-type.txt" }
+        };
+
+        var filtered = svc.FilterAuthorizedChunks(chunks, userClaims);
+
+        Assert.Single(filtered);
+        Assert.Contains(filtered, c => c.SourceFile == "group-match.txt");
+        Assert.DoesNotContain(filtered, c => c.SourceFile == "group-miss.txt");
+        Assert.DoesNotContain(filtered, c => c.SourceFile == "missing-doc-type.txt");
+    }
+
+    [Fact]
+    public async Task FilterAuthorizedChunks_UsesCaseInsensitiveGroupMatching()
+    {
+        await using var factory = new LegalRagAppFactory("Development", bypassAuthInDevelopment: true);
+        var svc = factory.Services.GetRequiredService<IAuthorizationFilter>();
+
+        var userClaims = new UserClaimsContext
+        {
+            PermittedMatters = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "MATTER-001" },
+            Groups = ["LITIGATION-TEAM"]
+        };
+
+        var chunks = new List<RetrievedChunk>
+        {
+            new() { MatterId = "MATTER-001", AccessGroup = "litigation-team", DocumentType = "memo", SourceFile = "case-insensitive.txt" }
+        };
+
+        var filtered = svc.FilterAuthorizedChunks(chunks, userClaims);
+
+        Assert.Single(filtered);
+        Assert.Equal("case-insensitive.txt", filtered[0].SourceFile);
+    }
+
     private static ClaimsPrincipal MakePrincipal(IEnumerable<Claim> claims)
     {
         var identity = new ClaimsIdentity(claims, "test");

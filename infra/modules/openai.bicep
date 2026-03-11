@@ -16,6 +16,7 @@ resource openai 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   properties: {
     customSubDomainName: name
     publicNetworkAccess: enablePrivateEndpoint ? 'disabled' : 'enabled'
+    disableLocalAuth: true
   }
 }
 
