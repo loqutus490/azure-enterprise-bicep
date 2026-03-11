@@ -101,6 +101,7 @@ scripts/
 
 - Azure CLI (`az`) installed and logged in
 - .NET 8 SDK
+  - If `dotnet` is missing in your runner/container, use `./scripts/setup-dotnet.sh` and see `docs/DOTNET_SETUP.md`.
 - Python 3.8+ (for document ingestion)
 - An Azure subscription with Owner/Contributor access
 
@@ -339,6 +340,10 @@ Integration tests use fake test doubles (retrieval/chat/auth identity simulation
 
 ## Deployment hardening notes
 
+- Hardened production template available at `infra/main.hardened.bicep` (forces `environment=prod`, private networking, managed-identity role assignments, and diagnostics disabled by default).
+- Hardening review and deployment guidance: `docs/BICEP_HARDENING.md`.
+- Key Vault is deployed with RBAC, purge protection, 90-day soft delete retention, and private endpoint support in production.
+- App Service is configured to use managed identity for Azure OpenAI/Azure AI Search access (no API keys required).
 - App Service uses **system-assigned managed identity** and RBAC assignments for Azure OpenAI/Search access.
 - Infrastructure supports **private networking** and private endpoints in production mode.
 - `DebugRag` is wired as an explicit IaC/app setting toggle and defaults to `false`.

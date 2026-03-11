@@ -11,6 +11,7 @@ param searchIndex string = ''
 param openAiEndpoint string = ''
 param openAiDeployment string = ''
 param openAiEmbeddingDeployment string = ''
+param keyVaultName string = ''
 @description('App Service plan SKU name (for example: F1, B1, S1).')
 param appServicePlanSkuName string = 'B1'
 @description('App Service plan SKU tier (for example: Free, Basic, Standard).')
@@ -95,6 +96,10 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
           value: searchIndex
         }
         {
+          name: 'AzureSearch__UseManagedIdentity'
+          value: 'true'
+        }
+        {
           name: 'AzureOpenAI__Endpoint'
           value: openAiEndpoint
         }
@@ -105,6 +110,14 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'AzureOpenAI__EmbeddingDeployment'
           value: openAiEmbeddingDeployment
+        }
+        {
+          name: 'AzureOpenAI__UseManagedIdentity'
+          value: 'true'
+        }
+        {
+          name: 'KeyVault__Name'
+          value: keyVaultName
         }
         {
           name: 'ASPNETCORE_ENVIRONMENT'

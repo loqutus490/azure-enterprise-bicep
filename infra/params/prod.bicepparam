@@ -5,7 +5,7 @@ param location = 'westus3'
 param appServicePlanSkuName = 'B1'
 param appServicePlanSkuTier = 'Basic'
 param deployOpenAiModels = false
-param deployRoleAssignments = false
+param deployRoleAssignments = true
 param budgetContactEmails = [
   'roybernales@agent13.ai'
 ]
@@ -16,3 +16,5 @@ param allowedClientApplications = [
 	'8bf4533e-4bae-409a-a4c1-71e178492e3d'
 ]
 // param botEntraAppId = '<your-bot-app-client-id>'
+
+param enableNetworking = true

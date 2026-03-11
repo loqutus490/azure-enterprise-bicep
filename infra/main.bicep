@@ -3,6 +3,10 @@ targetScope = 'resourceGroup'
 // =============================================
 // Parameters
 // =============================================
+@allowed([
+  'dev'
+  'prod'
+])
 param environment string
 param location string = 'westus3'
 param storageLocation string = 'eastus'
@@ -112,6 +116,9 @@ module keyvault './modules/keyvault.bicep' = {
   params: {
     name: keyVaultName
     location: location
+    enablePrivateEndpoint: enableNetworking
+    privateEndpointSubnetId: enableNetworking ? (networking.?outputs.?peSubnetId ?? '') : ''
+    privateDnsZoneId: enableNetworking ? (networking.?outputs.?kvDnsZoneId ?? '') : ''
   }
 }
 
@@ -145,6 +152,7 @@ module app './modules/appservice.bicep' = {
     openAiEndpoint: openai.outputs.endpoint
     openAiDeployment: openai.outputs.chatDeploymentName
     openAiEmbeddingDeployment: environment == 'dev' ? 'text-embedding-3-small' : openai.outputs.embeddingDeploymentName
+    keyVaultName: keyvault.outputs.keyVaultName
     appServicePlanSkuName: appServicePlanSkuName
     appServicePlanSkuTier: appServicePlanSkuTier
     existingAppServicePlanResourceId: existingAppServicePlanResourceId
@@ -166,8 +174,14 @@ resource searchService 'Microsoft.Search/searchServices@2023-11-01' existing = {
   name: searchServiceName
 }
 
+resource keyVaultResource 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: keyvault.outputs.keyVaultName
+}
+
 var openAiUserRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
 var searchIndexDataReaderRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/1407120a-92aa-4202-b7e9-c0e197c71c8f'
+
+var keyVaultSecretsUserRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/4633458b-17de-408a-b874-0445c86b69e6'
 var appResourceName = appServiceName
 
 resource openAiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployRoleAssignments) {
@@ -186,6 +200,17 @@ resource searchDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments
   properties: {
     principalId: app.outputs.appServicePrincipalId
     roleDefinitionId: searchIndexDataReaderRoleDefinitionId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+
+resource keyVaultSecretsUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployRoleAssignments) {
+  name: guid(keyvault.outputs.keyVaultId, appResourceName, keyVaultSecretsUserRoleDefinitionId)
+  scope: keyVaultResource
+  properties: {
+    principalId: app.outputs.appServicePrincipalId
+    roleDefinitionId: keyVaultSecretsUserRoleDefinitionId
     principalType: 'ServicePrincipal'
   }
 }
@@ -221,3 +246,4 @@ output appUrl string = app.outputs.appServiceUrl
 output searchService string = search.outputs.searchName
 output openaiEndpoint string = openai.outputs.endpoint
 output keyVaultName string = keyvault.outputs.keyVaultName
+output keyVaultUri string = keyvault.outputs.keyVaultUri

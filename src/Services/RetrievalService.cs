@@ -103,7 +103,9 @@ public sealed class RetrievalService : IRetrievalService
         var baseFilters = new List<string>
         {
             _authorizationFilter.BuildSecurityFilter(userClaims),
-            $"matterId eq '{EscapeODataString(request.MatterId)}'"
+            $"matterId eq '{EscapeODataString(request.MatterId)}'",
+            "accessGroup ne null",
+            "documentType ne null"
         };
 
         if (!string.IsNullOrWhiteSpace(request.PracticeArea))
@@ -177,7 +179,9 @@ public sealed class RetrievalService : IRetrievalService
         var baseFilters = new List<string>
         {
             _authorizationFilter.BuildSecurityFilter(userClaims),
-            $"matterId eq '{EscapeODataString(request.MatterId)}'"
+            $"matterId eq '{EscapeODataString(request.MatterId)}'",
+            "accessGroup ne null",
+            "documentType ne null"
         };
 
         var aclFilter = _authorizationFilter.BuildAclFilter(userClaims);
