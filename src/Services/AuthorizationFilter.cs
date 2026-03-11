@@ -71,10 +71,17 @@ public sealed class AuthorizationFilter : IAuthorizationFilter
     public IReadOnlyList<RetrievedChunk> FilterAuthorizedChunks(IReadOnlyList<RetrievedChunk> chunks, UserClaimsContext userClaims)
     {
         return chunks.Where(chunk =>
-                (!string.IsNullOrWhiteSpace(chunk.MatterId) && userClaims.PermittedMatters.Contains(chunk.MatterId))
-                && (string.IsNullOrWhiteSpace(chunk.AccessGroup) || userClaims.Groups.Contains(chunk.AccessGroup, StringComparer.OrdinalIgnoreCase)))
+                HasRequiredMetadata(chunk)
+                && userClaims.PermittedMatters.Contains(chunk.MatterId!)
+                && userClaims.Groups.Contains(chunk.AccessGroup!, StringComparer.OrdinalIgnoreCase))
             .ToList();
     }
+
+
+    private static bool HasRequiredMetadata(RetrievedChunk chunk) =>
+        !string.IsNullOrWhiteSpace(chunk.MatterId)
+        && !string.IsNullOrWhiteSpace(chunk.AccessGroup)
+        && !string.IsNullOrWhiteSpace(chunk.DocumentType);
 
     public string BuildSecurityFilter(UserClaimsContext userClaims)
     {

@@ -5,14 +5,16 @@ param location = 'westus3'
 param appServicePlanSkuName = 'B1'
 param appServicePlanSkuTier = 'Basic'
 param deployOpenAiModels = false
-param deployRoleAssignments = false
+param deployRoleAssignments = true
 param budgetContactEmails = [
-  'roybernales@agent13.ai'
+  '<set-budget-alert-email>'
 ]
 
 // Entra ID: set after running scripts/setup-entra.sh
-param entraClientId = 'd096fae4-910b-439b-84f1-5bb7966cc705'
+param entraClientId = '<set-in-pipeline-or-local-secrets>'
 param allowedClientApplications = [
-	'8bf4533e-4bae-409a-a4c1-71e178492e3d'
+  '<set-approved-caller-app-id>'
 ]
 // param botEntraAppId = '<your-bot-app-client-id>'
+
+param enableNetworking = true

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 using LegalRagApp.Models;
 using LegalRagApp.Prompts;
 using LegalRagApp.Services;
@@ -25,13 +26,13 @@ public class IntegrationPlatformTests
         client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
 
         var response = await client.PostAsJsonAsync("/ask", new AskRequestDto { Question = "What is the termination clause?", MatterId = "MATTER-001", ConversationId = "c1" });
-        var payload = await response.Content.ReadFromJsonAsync<AskResponseDto>();
+        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(payload);
         Assert.Equal("grounded_success", payload!.Diagnostics!.FinalAnswerStatus);
         Assert.NotEmpty(payload.SourceMetadata);
         Assert.NotEqual(PromptOutputFactory.InsufficientContextSummary, payload.Answer);
+        Assert.True(payload.RetrievedChunkCount > 0);
     }
 
     [Fact]
@@ -42,10 +43,10 @@ public class IntegrationPlatformTests
         client.DefaultRequestHeaders.Add("X-Test-User", "unauthorized");
 
         var response = await client.PostAsJsonAsync("/ask", new AskRequestDto { Question = "What is the termination clause?", MatterId = "MATTER-001", ConversationId = "c2" });
-        var payload = await response.Content.ReadFromJsonAsync<AskResponseDto>();
+        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(PromptOutputFactory.InsufficientContextSummary, payload!.Answer);
+        Assert.Equal(0, payload.RetrievedChunkCount);
         Assert.Equal("fallback_unauthorized", payload.Diagnostics!.FallbackReason);
     }
 
@@ -57,10 +58,103 @@ public class IntegrationPlatformTests
         client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
 
         var response = await client.PostAsJsonAsync("/ask", new AskRequestDto { Question = "no-docs scenario", MatterId = "MATTER-001", ConversationId = "c3" });
-        var payload = await response.Content.ReadFromJsonAsync<AskResponseDto>();
+        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(PromptOutputFactory.InsufficientContextSummary, payload!.Answer);
+        Assert.Equal("fallback_no_docs", payload.Diagnostics!.FallbackReason);
+    }
+
+
+    [Fact]
+    public async Task SuccessfulDocumentRetrieval_ReturnsAuthorizedChunkMetadata()
+    {
+        await using var factory = new LegalRagAppFactory("Development", true, debugRagEnabled: true);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
+
+        var response = await client.PostAsJsonAsync("/ask", new AskRequestDto
+        {
+            Question = "summarize the agreement",
+            MatterId = "MATTER-001",
+            ConversationId = "scenario-success"
+        });
+
+        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
+        Assert.NotNull(payload);
+        Assert.True(payload!.RetrievedChunkCount > 0);
+        Assert.NotEmpty(payload.SourceMetadata);
+        Assert.All(payload.SourceMetadata, source => Assert.False(string.IsNullOrWhiteSpace(source.DocumentType)));
+    }
+
+    [Fact]
+    public async Task AuthorizationFiltering_UnauthorizedUserGetsNoDocuments()
+    {
+        await using var factory = new LegalRagAppFactory("Development", true, debugRagEnabled: true);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-User", "unauthorized");
+
+        var askResponse = await client.PostAsJsonAsync("/ask", new AskRequestDto
+        {
+            Question = "summarize the agreement",
+            MatterId = "MATTER-001",
+            ConversationId = "scenario-unauthorized"
+        });
+        var askPayload = await ReadJsonResponseAsync<AskResponseDto>(askResponse);
+
+        var debugResponse = await client.PostAsJsonAsync("/debug/retrieval", new AskRequestDto
+        {
+            Question = "summarize the agreement",
+            MatterId = "MATTER-001",
+            ConversationId = "scenario-unauthorized-debug"
+        });
+        var debugPayload = await ReadJsonResponseAsync<RetrievalDebugResponseDto>(debugResponse);
+
+        Assert.NotNull(askPayload);
+        Assert.NotNull(debugPayload);
+        Assert.Equal(0, askPayload!.RetrievedChunkCount);
+        Assert.Equal(2, debugPayload!.RawRetrievalCount);
+        Assert.Equal(0, debugPayload.FilteredRetrievalCount);
+    }
+
+    [Fact]
+    public async Task EmptyRetrievalResult_ReturnsZeroCounts()
+    {
+        await using var factory = new LegalRagAppFactory("Development", true, debugRagEnabled: true);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
+
+        var debugResponse = await client.PostAsJsonAsync("/debug/retrieval", new AskRequestDto
+        {
+            Question = "no-docs scenario",
+            MatterId = "MATTER-001",
+            ConversationId = "scenario-empty-debug"
+        });
+
+        var debugPayload = await ReadJsonResponseAsync<RetrievalDebugResponseDto>(debugResponse);
+        Assert.NotNull(debugPayload);
+        Assert.Equal(0, debugPayload!.RawRetrievalCount);
+        Assert.Equal(0, debugPayload.FilteredRetrievalCount);
+        Assert.Equal("fallback_no_docs", debugPayload.FallbackReason);
+    }
+
+    [Fact]
+    public async Task FallbackResponseWhenNoContextExists_ReturnsInsufficientInformation()
+    {
+        await using var factory = new LegalRagAppFactory("Development", true, debugRagEnabled: true);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
+
+        var response = await client.PostAsJsonAsync("/ask", new AskRequestDto
+        {
+            Question = "no-docs scenario",
+            MatterId = "MATTER-001",
+            ConversationId = "scenario-fallback"
+        });
+
+        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
+        Assert.NotNull(payload);
+        Assert.Equal(PromptOutputFactory.InsufficientContextSummary, payload!.Answer);
+        Assert.Equal(0, payload.RetrievedChunkCount);
         Assert.Equal("fallback_no_docs", payload.Diagnostics!.FallbackReason);
     }
 
@@ -83,11 +177,30 @@ public class IntegrationPlatformTests
         client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
 
         var response = await client.PostAsJsonAsync("/debug/retrieval", new AskRequestDto { Question = "q", MatterId = "MATTER-001", ConversationId = "d2" });
-        var payload = await response.Content.ReadFromJsonAsync<RetrievalDebugResponseDto>();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await ReadJsonResponseAsync<RetrievalDebugResponseDto>(response);
         Assert.NotNull(payload);
         Assert.True(payload!.FilteredRetrievalCount > 0);
+    }
+
+    private static async Task<T> ReadJsonResponseAsync<T>(HttpResponseMessage response)
+    {
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var contentType = response.Content.Headers.ContentType?.MediaType;
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(
+            contentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true,
+            $"Expected JSON but got '{contentType ?? "<null>"}'. Body:
+{body}");
+
+        var payload = JsonSerializer.Deserialize<T>(body, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        return payload!;
     }
 }
 
@@ -121,7 +234,12 @@ public sealed class LegalRagAppFactory(string environmentName, bool bypassAuthIn
 
         builder.ConfigureTestServices(services =>
         {
-            services.AddAuthentication("Test")
+            services.AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = "Test";
+                    options.DefaultChallengeScheme = "Test";
+                    options.DefaultScheme = "Test";
+                })
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
             services.AddSingleton<IRetrievalService, FakeRetrievalService>();
             services.AddSingleton<IChatService, FakeChatService>();
@@ -154,11 +272,12 @@ internal sealed class TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOption
     }
 }
 
-internal sealed class FakeRetrievalService : IRetrievalService
+internal sealed class FakeRetrievalService(IAuthorizationFilter authorizationFilter) : IRetrievalService
 {
     public Task<RetrievalResult> RetrieveAsync(AskRequestDto request, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
-        var userId = user.FindFirst("preferred_username")?.Value ?? "anonymous";
+        var userClaims = authorizationFilter.GetUserClaims(user);
+
         if (request.Question.Contains("no-docs", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult(new RetrievalResult
@@ -166,41 +285,45 @@ internal sealed class FakeRetrievalService : IRetrievalService
                 Chunks = Array.Empty<RetrievedChunk>(),
                 RawRetrievedChunkCount = 0,
                 FilteredRetrievedChunkCount = 0,
-                UserClaims = new UserClaimsContext { UserId = userId, PermittedMatters = new HashSet<string> { request.MatterId } },
+                UserClaims = userClaims,
                 FallbackReason = "fallback_no_docs"
             });
         }
 
-        if (userId.Contains("unauthorized", StringComparison.OrdinalIgnoreCase))
+        var rawChunks = new List<RetrievedChunk>
         {
-            return Task.FromResult(new RetrievalResult
+            new()
             {
-                Chunks = Array.Empty<RetrievedChunk>(),
-                RawRetrievedChunkCount = 2,
-                FilteredRetrievedChunkCount = 0,
-                UserClaims = new UserClaimsContext { UserId = userId, PermittedMatters = new HashSet<string> { request.MatterId } },
-                FallbackReason = "fallback_unauthorized"
-            });
-        }
-
-        var chunk = new RetrievedChunk
-        {
-            DocumentId = "doc-1",
-            SourceId = "src-1",
-            SourceFile = "master-services-agreement.pdf",
-            MatterId = request.MatterId,
-            DocumentType = "contract",
-            Content = "Termination requires 30 days written notice.",
-            Snippet = "Termination requires 30 days written notice."
+                DocumentId = "doc-1",
+                SourceId = "src-1",
+                SourceFile = "master-services-agreement.pdf",
+                MatterId = request.MatterId,
+                AccessGroup = "team-a",
+                DocumentType = "contract",
+                Content = "Termination requires 30 days written notice.",
+                Snippet = "Termination requires 30 days written notice."
+            },
+            new()
+            {
+                DocumentId = "doc-2",
+                SourceId = "src-2",
+                SourceFile = "missing-metadata.pdf",
+                MatterId = request.MatterId,
+                AccessGroup = "team-a",
+                Content = "This chunk is missing documentType and should be filtered.",
+                Snippet = "This chunk is missing documentType and should be filtered."
+            }
         };
 
+        var filteredChunks = authorizationFilter.FilterAuthorizedChunks(rawChunks, userClaims);
         return Task.FromResult(new RetrievalResult
         {
-            Chunks = [chunk],
-            RawRetrievedChunkCount = 1,
-            FilteredRetrievedChunkCount = 1,
-            AverageScore = 0.9,
-            UserClaims = new UserClaimsContext { UserId = userId, PermittedMatters = new HashSet<string> { request.MatterId } }
+            Chunks = filteredChunks,
+            RawRetrievedChunkCount = rawChunks.Count,
+            FilteredRetrievedChunkCount = filteredChunks.Count,
+            AverageScore = filteredChunks.Count > 0 ? 0.9 : 0.0,
+            UserClaims = userClaims,
+            FallbackReason = filteredChunks.Count == 0 ? "fallback_unauthorized" : null
         });
     }
 
