@@ -68,13 +68,13 @@ public class AclFilterTests
         var userClaims = new UserClaimsContext
         {
             PermittedMatters = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "MATTER-001" },
-            Groups = []
+            Groups = ["team-a"]
         };
 
         var chunks = new List<RetrievedChunk>
         {
-            new() { MatterId = "MATTER-001", SourceFile = "authorized.txt" },
-            new() { MatterId = "MATTER-002", SourceFile = "unauthorized.txt" }
+            new() { MatterId = "MATTER-001", AccessGroup = "team-a", DocumentType = "contract", SourceFile = "authorized.txt" },
+            new() { MatterId = "MATTER-002", AccessGroup = "team-a", DocumentType = "contract", SourceFile = "unauthorized.txt" }
         };
 
         var filtered = svc.FilterAuthorizedChunks(chunks, userClaims);
@@ -97,17 +97,17 @@ public class AclFilterTests
 
         var chunks = new List<RetrievedChunk>
         {
-            new() { MatterId = "MATTER-001", AccessGroup = "litigation", SourceFile = "group-match.txt" },
-            new() { MatterId = "MATTER-001", AccessGroup = "tax", SourceFile = "group-miss.txt" },
-            new() { MatterId = "MATTER-001", SourceFile = "public-within-matter.txt" }
+            new() { MatterId = "MATTER-001", AccessGroup = "litigation", DocumentType = "contract", SourceFile = "group-match.txt" },
+            new() { MatterId = "MATTER-001", AccessGroup = "tax", DocumentType = "contract", SourceFile = "group-miss.txt" },
+            new() { MatterId = "MATTER-001", AccessGroup = "litigation", SourceFile = "missing-doc-type.txt" }
         };
 
         var filtered = svc.FilterAuthorizedChunks(chunks, userClaims);
 
-        Assert.Equal(2, filtered.Count);
+        Assert.Single(filtered);
         Assert.Contains(filtered, c => c.SourceFile == "group-match.txt");
-        Assert.Contains(filtered, c => c.SourceFile == "public-within-matter.txt");
         Assert.DoesNotContain(filtered, c => c.SourceFile == "group-miss.txt");
+        Assert.DoesNotContain(filtered, c => c.SourceFile == "missing-doc-type.txt");
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class AclFilterTests
 
         var chunks = new List<RetrievedChunk>
         {
-            new() { MatterId = "MATTER-001", AccessGroup = "litigation-team", SourceFile = "case-insensitive.txt" }
+            new() { MatterId = "MATTER-001", AccessGroup = "litigation-team", DocumentType = "memo", SourceFile = "case-insensitive.txt" }
         };
 
         var filtered = svc.FilterAuthorizedChunks(chunks, userClaims);

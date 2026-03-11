@@ -32,6 +32,7 @@ public class IntegrationPlatformTests
         Assert.Equal("grounded_success", payload!.Diagnostics!.FinalAnswerStatus);
         Assert.NotEmpty(payload.SourceMetadata);
         Assert.NotEqual(PromptOutputFactory.InsufficientContextSummary, payload.Answer);
+        Assert.True(payload.RetrievedChunkCount > 0);
     }
 
     [Fact]
@@ -46,6 +47,7 @@ public class IntegrationPlatformTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(PromptOutputFactory.InsufficientContextSummary, payload!.Answer);
+        Assert.Equal(0, payload.RetrievedChunkCount);
         Assert.Equal("fallback_unauthorized", payload.Diagnostics!.FallbackReason);
     }
 
@@ -154,11 +156,12 @@ internal sealed class TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOption
     }
 }
 
-internal sealed class FakeRetrievalService : IRetrievalService
+internal sealed class FakeRetrievalService(IAuthorizationFilter authorizationFilter) : IRetrievalService
 {
     public Task<RetrievalResult> RetrieveAsync(AskRequestDto request, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
-        var userId = user.FindFirst("preferred_username")?.Value ?? "anonymous";
+        var userClaims = authorizationFilter.GetUserClaims(user);
+
         if (request.Question.Contains("no-docs", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult(new RetrievalResult
@@ -166,41 +169,45 @@ internal sealed class FakeRetrievalService : IRetrievalService
                 Chunks = Array.Empty<RetrievedChunk>(),
                 RawRetrievedChunkCount = 0,
                 FilteredRetrievedChunkCount = 0,
-                UserClaims = new UserClaimsContext { UserId = userId, PermittedMatters = new HashSet<string> { request.MatterId } },
+                UserClaims = userClaims,
                 FallbackReason = "fallback_no_docs"
             });
         }
 
-        if (userId.Contains("unauthorized", StringComparison.OrdinalIgnoreCase))
+        var rawChunks = new List<RetrievedChunk>
         {
-            return Task.FromResult(new RetrievalResult
+            new()
             {
-                Chunks = Array.Empty<RetrievedChunk>(),
-                RawRetrievedChunkCount = 2,
-                FilteredRetrievedChunkCount = 0,
-                UserClaims = new UserClaimsContext { UserId = userId, PermittedMatters = new HashSet<string> { request.MatterId } },
-                FallbackReason = "fallback_unauthorized"
-            });
-        }
-
-        var chunk = new RetrievedChunk
-        {
-            DocumentId = "doc-1",
-            SourceId = "src-1",
-            SourceFile = "master-services-agreement.pdf",
-            MatterId = request.MatterId,
-            DocumentType = "contract",
-            Content = "Termination requires 30 days written notice.",
-            Snippet = "Termination requires 30 days written notice."
+                DocumentId = "doc-1",
+                SourceId = "src-1",
+                SourceFile = "master-services-agreement.pdf",
+                MatterId = request.MatterId,
+                AccessGroup = "team-a",
+                DocumentType = "contract",
+                Content = "Termination requires 30 days written notice.",
+                Snippet = "Termination requires 30 days written notice."
+            },
+            new()
+            {
+                DocumentId = "doc-2",
+                SourceId = "src-2",
+                SourceFile = "missing-metadata.pdf",
+                MatterId = request.MatterId,
+                AccessGroup = "team-a",
+                Content = "This chunk is missing documentType and should be filtered.",
+                Snippet = "This chunk is missing documentType and should be filtered."
+            }
         };
 
+        var filteredChunks = authorizationFilter.FilterAuthorizedChunks(rawChunks, userClaims);
         return Task.FromResult(new RetrievalResult
         {
-            Chunks = [chunk],
-            RawRetrievedChunkCount = 1,
-            FilteredRetrievedChunkCount = 1,
-            AverageScore = 0.9,
-            UserClaims = new UserClaimsContext { UserId = userId, PermittedMatters = new HashSet<string> { request.MatterId } }
+            Chunks = filteredChunks,
+            RawRetrievedChunkCount = rawChunks.Count,
+            FilteredRetrievedChunkCount = filteredChunks.Count,
+            AverageScore = filteredChunks.Count > 0 ? 0.9 : 0.0,
+            UserClaims = userClaims,
+            FallbackReason = filteredChunks.Count == 0 ? "fallback_unauthorized" : null
         });
     }
 
