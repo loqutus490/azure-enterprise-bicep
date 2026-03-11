@@ -26,10 +26,6 @@ This repository now includes a hardened production deployment template at:
    - Search `publicNetworkAccess` is disabled whenever private endpoint mode is enabled.
    - Hardened template forces production with private networking enabled.
 
-5. **Storage hardening**
-   - Storage now enforces HTTPS-only, TLS 1.2 minimum, and blocks blob public access.
-   - In production networking mode, Storage public network access is disabled and Blob private endpoint + private DNS are configured.
-
 ## Deploy hardened production
 
 ```bash

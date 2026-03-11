@@ -228,6 +228,10 @@ public sealed class AskController : ControllerBase
                 _conversationMemoryDepth,
                 cancellationToken);
 
+            var finalAnswerStatus = retrieval.Chunks.Count > 0
+                ? "grounded_success"
+                : (retrieval.FallbackReason ?? "fallback_unknown");
+
             var response = new AskResponseDto
             {
                 Answer = structured.Summary,
@@ -242,7 +246,21 @@ public sealed class AskController : ControllerBase
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .Cast<string>()
                     .ToArray(),
-                RetrievedChunkCount = retrieval.FilteredRetrievedChunkCount
+                RetrievedChunkCount = retrieval.FilteredRetrievedChunkCount,
+                SourceMetadata = retrieval.Chunks.Select(c => new AskSourceDto
+                {
+                    SourceFile = c.SourceFile ?? string.Empty,
+                    SourceId = c.SourceId ?? string.Empty,
+                    MatterId = c.MatterId ?? string.Empty,
+                    DocumentType = c.DocumentType ?? string.Empty
+                }).ToList(),
+                Diagnostics = new AskDiagnosticsSummaryDto
+                {
+                    RawRetrievalCount = retrieval.RawRetrievedChunkCount,
+                    FilteredRetrievalCount = retrieval.FilteredRetrievedChunkCount,
+                    FinalAnswerStatus = finalAnswerStatus,
+                    FallbackReason = retrieval.FallbackReason
+                }
             };
 
             HttpContext.Items[AuditLoggingMiddleware.AuditRecordItemKey] = new AskAuditRecord
