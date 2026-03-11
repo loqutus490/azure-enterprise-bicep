@@ -158,6 +158,12 @@ resource kvDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   location: 'global'
 }
 
+
+resource blobDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: 'privatelink.blob.core.windows.net'
+  location: 'global'
+}
+
 resource searchDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   parent: searchDnsZone
   name: 'link-search'
@@ -194,6 +200,19 @@ resource kvDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-0
   }
 }
 
+
+resource blobDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: blobDnsZone
+  name: 'link-blob'
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: vnet.id
+    }
+    registrationEnabled: false
+  }
+}
+
 // Define subnets as standalone resources for stable output references
 resource appSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
   parent: vnet
@@ -217,3 +236,4 @@ output botSubnetId string = botSubnet.id
 output searchDnsZoneId string = searchDnsZone.id
 output openaiDnsZoneId string = openaiDnsZone.id
 output kvDnsZoneId string = kvDnsZone.id
+output blobDnsZoneId string = blobDnsZone.id

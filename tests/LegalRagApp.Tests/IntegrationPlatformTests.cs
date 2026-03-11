@@ -66,6 +66,108 @@ public class IntegrationPlatformTests
         Assert.Equal("fallback_no_docs", payload.Diagnostics!.FallbackReason);
     }
 
+
+    [Fact]
+    public async Task SuccessfulDocumentRetrieval_ReturnsAuthorizedChunkMetadata()
+    {
+        await using var factory = new LegalRagAppFactory("Development", true, debugRagEnabled: true);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
+
+        var response = await client.PostAsJsonAsync("/ask", new AskRequestDto
+        {
+            Question = "summarize the agreement",
+            MatterId = "MATTER-001",
+            ConversationId = "scenario-success"
+        });
+
+        var payload = await response.Content.ReadFromJsonAsync<AskResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(payload);
+        Assert.True(payload!.RetrievedChunkCount > 0);
+        Assert.NotEmpty(payload.SourceMetadata);
+        Assert.All(payload.SourceMetadata, source => Assert.False(string.IsNullOrWhiteSpace(source.DocumentType)));
+    }
+
+    [Fact]
+    public async Task AuthorizationFiltering_UnauthorizedUserGetsNoDocuments()
+    {
+        await using var factory = new LegalRagAppFactory("Development", true, debugRagEnabled: true);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-User", "unauthorized");
+
+        var askResponse = await client.PostAsJsonAsync("/ask", new AskRequestDto
+        {
+            Question = "summarize the agreement",
+            MatterId = "MATTER-001",
+            ConversationId = "scenario-unauthorized"
+        });
+        var askPayload = await askResponse.Content.ReadFromJsonAsync<AskResponseDto>();
+
+        var debugResponse = await client.PostAsJsonAsync("/debug/retrieval", new AskRequestDto
+        {
+            Question = "summarize the agreement",
+            MatterId = "MATTER-001",
+            ConversationId = "scenario-unauthorized-debug"
+        });
+        var debugPayload = await debugResponse.Content.ReadFromJsonAsync<RetrievalDebugResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, askResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, debugResponse.StatusCode);
+        Assert.NotNull(askPayload);
+        Assert.NotNull(debugPayload);
+        Assert.Equal(0, askPayload!.RetrievedChunkCount);
+        Assert.Equal(2, debugPayload!.RawRetrievalCount);
+        Assert.Equal(0, debugPayload.FilteredRetrievalCount);
+    }
+
+    [Fact]
+    public async Task EmptyRetrievalResult_ReturnsZeroCounts()
+    {
+        await using var factory = new LegalRagAppFactory("Development", true, debugRagEnabled: true);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
+
+        var debugResponse = await client.PostAsJsonAsync("/debug/retrieval", new AskRequestDto
+        {
+            Question = "no-docs scenario",
+            MatterId = "MATTER-001",
+            ConversationId = "scenario-empty-debug"
+        });
+
+        var debugPayload = await debugResponse.Content.ReadFromJsonAsync<RetrievalDebugResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, debugResponse.StatusCode);
+        Assert.NotNull(debugPayload);
+        Assert.Equal(0, debugPayload!.RawRetrievalCount);
+        Assert.Equal(0, debugPayload.FilteredRetrievalCount);
+        Assert.Equal("fallback_no_docs", debugPayload.FallbackReason);
+    }
+
+    [Fact]
+    public async Task FallbackResponseWhenNoContextExists_ReturnsInsufficientInformation()
+    {
+        await using var factory = new LegalRagAppFactory("Development", true, debugRagEnabled: true);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
+
+        var response = await client.PostAsJsonAsync("/ask", new AskRequestDto
+        {
+            Question = "no-docs scenario",
+            MatterId = "MATTER-001",
+            ConversationId = "scenario-fallback"
+        });
+
+        var payload = await response.Content.ReadFromJsonAsync<AskResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(payload);
+        Assert.Equal(PromptOutputFactory.InsufficientContextSummary, payload!.Answer);
+        Assert.Equal(0, payload.RetrievedChunkCount);
+        Assert.Equal("fallback_no_docs", payload.Diagnostics!.FallbackReason);
+    }
+
     [Fact]
     public async Task DebugEndpointBlockedWhenDisabled()
     {

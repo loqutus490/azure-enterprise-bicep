@@ -346,6 +346,7 @@ Integration tests use fake test doubles (retrieval/chat/auth identity simulation
 - App Service is configured to use managed identity for Azure OpenAI/Azure AI Search access (no API keys required).
 - App Service uses **system-assigned managed identity** and RBAC assignments for Azure OpenAI/Search access.
 - Infrastructure supports **private networking** and private endpoints in production mode.
+- Storage is hardened with HTTPS-only + TLS1.2 minimum + blob public access disabled; production mode uses private endpoint access for Blob.
 - `DebugRag` is wired as an explicit IaC/app setting toggle and defaults to `false`.
 - Keep production and development parameters separated (`infra/params/dev.bicepparam`, `infra/params/prod.bicepparam`).
 

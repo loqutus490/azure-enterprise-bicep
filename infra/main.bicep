@@ -79,6 +79,9 @@ module storage './modules/storage.bicep' = {
   params: {
     name: 'st${uniqueString(resourceGroup().id)}'
     location: storageLocation
+    enablePrivateEndpoint: enableNetworking
+    privateEndpointSubnetId: enableNetworking ? (networking.?outputs.?peSubnetId ?? '') : ''
+    privateDnsZoneId: enableNetworking ? (networking.?outputs.?blobDnsZoneId ?? '') : ''
   }
 }
 
