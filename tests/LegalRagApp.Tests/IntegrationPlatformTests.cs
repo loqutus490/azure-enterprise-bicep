@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 using LegalRagApp.Models;
 using LegalRagApp.Prompts;
 using LegalRagApp.Services;
@@ -25,9 +26,8 @@ public class IntegrationPlatformTests
         client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
 
         var response = await client.PostAsJsonAsync("/ask", new AskRequestDto { Question = "What is the termination clause?", MatterId = "MATTER-001", ConversationId = "c1" });
-        var payload = await response.Content.ReadFromJsonAsync<AskResponseDto>();
+        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(payload);
         Assert.Equal("grounded_success", payload!.Diagnostics!.FinalAnswerStatus);
         Assert.NotEmpty(payload.SourceMetadata);
@@ -43,9 +43,8 @@ public class IntegrationPlatformTests
         client.DefaultRequestHeaders.Add("X-Test-User", "unauthorized");
 
         var response = await client.PostAsJsonAsync("/ask", new AskRequestDto { Question = "What is the termination clause?", MatterId = "MATTER-001", ConversationId = "c2" });
-        var payload = await response.Content.ReadFromJsonAsync<AskResponseDto>();
+        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(PromptOutputFactory.InsufficientContextSummary, payload!.Answer);
         Assert.Equal(0, payload.RetrievedChunkCount);
         Assert.Equal("fallback_unauthorized", payload.Diagnostics!.FallbackReason);
@@ -59,9 +58,8 @@ public class IntegrationPlatformTests
         client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
 
         var response = await client.PostAsJsonAsync("/ask", new AskRequestDto { Question = "no-docs scenario", MatterId = "MATTER-001", ConversationId = "c3" });
-        var payload = await response.Content.ReadFromJsonAsync<AskResponseDto>();
+        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(PromptOutputFactory.InsufficientContextSummary, payload!.Answer);
         Assert.Equal("fallback_no_docs", payload.Diagnostics!.FallbackReason);
     }
@@ -187,11 +185,30 @@ public class IntegrationPlatformTests
         client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
 
         var response = await client.PostAsJsonAsync("/debug/retrieval", new AskRequestDto { Question = "q", MatterId = "MATTER-001", ConversationId = "d2" });
-        var payload = await response.Content.ReadFromJsonAsync<RetrievalDebugResponseDto>();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await ReadJsonResponseAsync<RetrievalDebugResponseDto>(response);
         Assert.NotNull(payload);
         Assert.True(payload!.FilteredRetrievalCount > 0);
+    }
+
+    private static async Task<T> ReadJsonResponseAsync<T>(HttpResponseMessage response)
+    {
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var contentType = response.Content.Headers.ContentType?.MediaType;
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.True(
+            contentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true,
+            $"Expected JSON but got '{contentType ?? "<null>"}'. Body:
+{body}");
+
+        var payload = JsonSerializer.Deserialize<T>(body, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(payload);
+        return payload!;
     }
 }
 
@@ -225,7 +242,12 @@ public sealed class LegalRagAppFactory(string environmentName, bool bypassAuthIn
 
         builder.ConfigureTestServices(services =>
         {
-            services.AddAuthentication("Test")
+            services.AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = "Test";
+                    options.DefaultChallengeScheme = "Test";
+                    options.DefaultScheme = "Test";
+                })
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
             services.AddSingleton<IRetrievalService, FakeRetrievalService>();
             services.AddSingleton<IChatService, FakeChatService>();
