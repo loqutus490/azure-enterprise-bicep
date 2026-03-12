@@ -34,6 +34,7 @@ public sealed class AskSourceDto
     public string SourceId { get; set; } = string.Empty;
     public string MatterId { get; set; } = string.Empty;
     public string DocumentType { get; set; } = string.Empty;
+    public string AccessGroup { get; set; } = string.Empty;
 }
 
 public sealed class AskDiagnosticsSummaryDto
