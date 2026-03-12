@@ -229,6 +229,7 @@ public sealed class LegalRagAppFactory(string environmentName, bool bypassAuthIn
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
             services.AddSingleton<IRetrievalService, FakeRetrievalService>();
             services.AddSingleton<IChatService, FakeChatService>();
+            services.AddSingleton<IQueryRewriteService, FakeQueryRewriteService>();
         });
     }
 }
@@ -352,4 +353,10 @@ internal sealed class FakeChatService : IChatService
             }
         });
     }
+}
+
+internal sealed class FakeQueryRewriteService : IQueryRewriteService
+{
+    public Task<string> RewriteAsync(string question, CancellationToken cancellationToken)
+        => Task.FromResult(question);
 }
