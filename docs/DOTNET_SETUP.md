@@ -43,3 +43,18 @@ RUN dotnet restore && dotnet build --no-restore
 ```
 
 This avoids runtime installation and proxy issues during the pipeline.
+
+
+## 5) Run environment preflight (recommended)
+
+Use the preflight checker to quickly verify required tooling and outbound connectivity before attempting installs/builds:
+
+```bash
+./scripts/preflight-env.sh
+```
+
+This validates:
+- local commands (`dotnet`, `docker`, `az`, `node`, `npm`)
+- outbound hosts required for apt/nuget/docker access
+- proxy environment visibility
+

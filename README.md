@@ -133,7 +133,7 @@ scripts/
 
 - Azure CLI (`az`) installed and logged in
 - .NET 8 SDK
-  - If `dotnet` is missing in your runner/container, use `./scripts/setup-dotnet.sh` and see `docs/DOTNET_SETUP.md`.
+  - If `dotnet` is missing in your runner/container, run `./scripts/preflight-env.sh` first, then use `./scripts/setup-dotnet.sh` and see `docs/DOTNET_SETUP.md`.
 - Python 3.8+ (for document ingestion)
 - An Azure subscription with Owner/Contributor access
 
