@@ -35,6 +35,22 @@ jobs:
             ${{ runner.os }}-nuget-
       - name: Run Tests
         run: dotnet test
+      - name: Verify npm build script exists
+        working-directory: agent13-frontend
+        run: |
+          jq -e '.scripts.build' package.json > /dev/null || { echo "Error: 'build' script not found in agent13-frontend/package.json"; exit 1; }
+          echo "Build script verified."
+      - name: Install Frontend
+        working-directory: agent13-frontend
+        run: npm install
+      - name: Build Frontend
+        working-directory: agent13-frontend
+        run: npm run build
+      - name: Copy Frontend to wwwroot
+        run: |
+          mkdir -p src/wwwroot
+          rm -rf src/wwwroot/*
+          cp -r agent13-frontend/dist/. src/wwwroot/
       - name: Publish Backend
         run: dotnet publish ./src/LegalRagApp.csproj -c Release -o ./publish-backend
       - name: Package Backend Artifact
@@ -48,18 +64,6 @@ jobs:
           path: backend-publish.zip
           if-no-files-found: error
           retention-days: 7
-      - name: Verify npm build script exists
-        working-directory: agent13-frontend
-        run: |
-          jq -e '.scripts.build' package.json > /dev/null || { echo "Error: 'build' script not found in agent13-frontend/package.json"; exit 1; }
-          echo "Build script verified."
-      - name: Install Frontend
-        working-directory: agent13-frontend
-        run: npm install
-
-      - name: Build Frontend
-        working-directory: agent13-frontend
-        run: npm run build
       - name: Upload Frontend Artifact
         uses: actions/upload-artifact@v4
         with:
