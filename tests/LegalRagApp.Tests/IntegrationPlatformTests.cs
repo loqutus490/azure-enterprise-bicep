@@ -199,8 +199,7 @@ public class IntegrationPlatformTests
 
         Assert.True(
             contentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true,
-            $"Expected JSON but got '{contentType ?? "<null>"}'. Body:
-{body}");
+            $"Expected JSON but got '{contentType ?? "<null>"}'. Body:\n{body}");
 
         var payload = JsonSerializer.Deserialize<T>(body, new JsonSerializerOptions
         {
