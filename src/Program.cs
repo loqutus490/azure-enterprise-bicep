@@ -142,18 +142,19 @@ var bypassAuthInDevelopment = app.Environment.IsDevelopment()
     && app.Configuration.GetValue<bool>("Authorization:BypassAuthInDevelopment");
 var bypassMatterAuthorizationInDevelopment = app.Environment.IsDevelopment()
     && app.Configuration.GetValue<bool>("Authorization:BypassMatterAuthorizationInDevelopment");
+var logBypassWarnings = app.Configuration.GetValue("Authorization:LogBypassWarnings", true);
 
 if (allowedClientAppIdSet.Count == 0 && !app.Environment.IsDevelopment())
 {
     logger.LogWarning("Authorization:AllowedClientAppIds is empty outside Development. Any caller app with required scope/role may be allowed.");
 }
 
-if (bypassAuthInDevelopment)
+if (bypassAuthInDevelopment && logBypassWarnings)
 {
     logger.LogWarning("Authorization bypass is enabled for Development. Do not enable this outside local debugging.");
 }
 
-if (bypassMatterAuthorizationInDevelopment)
+if (bypassMatterAuthorizationInDevelopment && logBypassWarnings)
 {
     logger.LogWarning("Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.");
 }
