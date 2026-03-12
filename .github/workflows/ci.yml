@@ -16,6 +16,19 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: agent13-frontend/package-lock.json
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
       - name: Run Tests
         run: dotnet test
       - name: Publish Backend
@@ -31,6 +44,11 @@ jobs:
           path: backend-publish.zip
           if-no-files-found: error
           retention-days: 7
+      - name: Verify npm build script exists
+        working-directory: agent13-frontend
+        run: |
+          jq -e '.scripts.build' package.json > /dev/null || { echo "Error: 'build' script not found in agent13-frontend/package.json"; exit 1; }
+          echo "Build script verified."
       - name: Install Frontend
         working-directory: agent13-frontend
         run: npm install
