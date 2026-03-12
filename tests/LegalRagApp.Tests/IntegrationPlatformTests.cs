@@ -79,7 +79,9 @@ public class IntegrationPlatformTests
             ConversationId = "scenario-success"
         });
 
-        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
+        var payload = await response.Content.ReadFromJsonAsync<AskResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(payload);
         Assert.True(payload!.RetrievedChunkCount > 0);
         Assert.NotEmpty(payload.SourceMetadata);
@@ -99,7 +101,7 @@ public class IntegrationPlatformTests
             MatterId = "MATTER-001",
             ConversationId = "scenario-unauthorized"
         });
-        var askPayload = await ReadJsonResponseAsync<AskResponseDto>(askResponse);
+        var askPayload = await askResponse.Content.ReadFromJsonAsync<AskResponseDto>();
 
         var debugResponse = await client.PostAsJsonAsync("/debug/retrieval", new AskRequestDto
         {
@@ -107,8 +109,10 @@ public class IntegrationPlatformTests
             MatterId = "MATTER-001",
             ConversationId = "scenario-unauthorized-debug"
         });
-        var debugPayload = await ReadJsonResponseAsync<RetrievalDebugResponseDto>(debugResponse);
+        var debugPayload = await debugResponse.Content.ReadFromJsonAsync<RetrievalDebugResponseDto>();
 
+        Assert.Equal(HttpStatusCode.OK, askResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, debugResponse.StatusCode);
         Assert.NotNull(askPayload);
         Assert.NotNull(debugPayload);
         Assert.Equal(0, askPayload!.RetrievedChunkCount);
@@ -130,7 +134,9 @@ public class IntegrationPlatformTests
             ConversationId = "scenario-empty-debug"
         });
 
-        var debugPayload = await ReadJsonResponseAsync<RetrievalDebugResponseDto>(debugResponse);
+        var debugPayload = await debugResponse.Content.ReadFromJsonAsync<RetrievalDebugResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, debugResponse.StatusCode);
         Assert.NotNull(debugPayload);
         Assert.Equal(0, debugPayload!.RawRetrievalCount);
         Assert.Equal(0, debugPayload.FilteredRetrievalCount);
@@ -151,7 +157,9 @@ public class IntegrationPlatformTests
             ConversationId = "scenario-fallback"
         });
 
-        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
+        var payload = await response.Content.ReadFromJsonAsync<AskResponseDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(payload);
         Assert.Equal(PromptOutputFactory.InsufficientContextSummary, payload!.Answer);
         Assert.Equal(0, payload.RetrievedChunkCount);
@@ -243,6 +251,7 @@ public sealed class LegalRagAppFactory(string environmentName, bool bypassAuthIn
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
             services.AddSingleton<IRetrievalService, FakeRetrievalService>();
             services.AddSingleton<IChatService, FakeChatService>();
+            services.AddSingleton<IQueryRewriteService, FakeQueryRewriteService>();
         });
     }
 }
@@ -366,4 +375,10 @@ internal sealed class FakeChatService : IChatService
             }
         });
     }
+}
+
+internal sealed class FakeQueryRewriteService : IQueryRewriteService
+{
+    public Task<string> RewriteAsync(string question, CancellationToken cancellationToken)
+        => Task.FromResult(question);
 }

@@ -340,7 +340,6 @@ Integration tests use fake test doubles (retrieval/chat/auth identity simulation
 
 ## Deployment hardening notes
 
-- Developer onboarding/reference guide: `docs/DEVELOPER_GUIDE.md`.
 - Hardened production template available at `infra/main.hardened.bicep` (forces `environment=prod`, private networking, managed-identity role assignments, and diagnostics disabled by default).
 - Hardening review and deployment guidance: `docs/BICEP_HARDENING.md`.
 - Key Vault is deployed with RBAC, purge protection, 90-day soft delete retention, and private endpoint support in production.
