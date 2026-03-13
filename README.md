@@ -343,6 +343,14 @@ If SDK installation fails behind a proxy, follow `docs/DOTNET_SETUP.md` (allowli
 
 New to this? Start with `docs/FIRST_STEPS_LOCAL_SETUP.md` for a beginner-friendly walkthrough of the **first step**.
 
+Quick automation for newcomers:
+
+```bash
+./scripts/do-next-steps.sh
+```
+
+This runs setup, build/test (when `dotnet` is available), and branch cleanup dry-run (when `origin` is configured).
+
 Integration tests use fake test doubles (retrieval/chat/auth identity simulation) and do not require live Azure OpenAI or Azure Search.
 
 ## Deployment hardening notes
