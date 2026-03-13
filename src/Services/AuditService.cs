@@ -20,7 +20,9 @@ public sealed class AuditService : IAuditService
 
         var payload = new
         {
+            correlationId = record.CorrelationId,
             userId = record.UserId,
+            claimsSummary = record.ClaimsSummary,
             question = record.Question,
             rewrittenQuery = record.RewrittenQuery,
             timestamp = record.Timestamp,
@@ -30,7 +32,10 @@ public sealed class AuditService : IAuditService
             promptTokens = record.PromptTokens,
             completionTokens = record.CompletionTokens,
             estimatedCost = record.EstimatedCost,
-            responseTimeMs = record.ResponseTimeMs
+            responseTimeMs = record.ResponseTimeMs,
+            retrievalCount = record.RetrievalCount,
+            filteredCount = record.FilteredCount,
+            finalAnswerStatus = record.FinalAnswerStatus
         };
 
         _metricsService.TrackQueryAudit(record);

@@ -11,21 +11,31 @@ concurrency:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: agent13-frontend/package-lock.json
+
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -33,30 +43,24 @@ jobs:
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
-      - name: Run Tests
-        run: dotnet test
-      - name: Verify npm build script exists
-        working-directory: agent13-frontend
-        run: |
-          jq -e '.scripts.build' package.json > /dev/null || { echo "Error: 'build' script not found in agent13-frontend/package.json"; exit 1; }
-          echo "Build script verified."
-      - name: Install Frontend
-        working-directory: agent13-frontend
-        run: npm install
-      - name: Build Frontend
-        working-directory: agent13-frontend
-        run: npm run build
-      - name: Copy Frontend to wwwroot
-        run: |
-          mkdir -p src/wwwroot
-          rm -rf src/wwwroot/*
-          cp -r agent13-frontend/dist/. src/wwwroot/
+
+      - name: Restore .NET dependencies
+        run: dotnet restore
+
+      - name: Build .NET
+        run: dotnet build --no-restore
+
+      - name: Run .NET tests
+        run: dotnet test --no-build
+
       - name: Publish Backend
-        run: dotnet publish ./src/LegalRagApp.csproj -c Release -o ./publish-backend
+        run: dotnet publish ./src/LegalRagApp.csproj -c Release -o ./publish-backend --no-build
+
       - name: Package Backend Artifact
         run: |
           cd publish-backend
           zip -r ../backend-publish.zip .
+
       - name: Upload Backend Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -64,6 +68,19 @@ jobs:
           path: backend-publish.zip
           if-no-files-found: error
           retention-days: 7
+
+      - name: Verify npm build script exists
+        working-directory: agent13-frontend
+        run: node -e "const pkg=require('./package.json'); if(!pkg.scripts?.build){process.exit(1)}"
+
+      - name: Install Frontend dependencies
+        working-directory: agent13-frontend
+        run: npm ci
+
+      - name: Build Frontend
+        working-directory: agent13-frontend
+        run: npm run build
+
       - name: Upload Frontend Artifact
         uses: actions/upload-artifact@v4
         with:
