@@ -206,3 +206,16 @@ if (debugRagEnabled)
 app.Run();
 
 public partial class Program { }
+
+
+internal static class StartupWarningState
+{
+    private static int _authBypassWarningLogged;
+    private static int _matterBypassWarningLogged;
+
+    public static bool TryLogAuthBypassWarning()
+        => Interlocked.Exchange(ref _authBypassWarningLogged, 1) == 0;
+
+    public static bool TryLogMatterBypassWarning()
+        => Interlocked.Exchange(ref _matterBypassWarningLogged, 1) == 0;
+}
