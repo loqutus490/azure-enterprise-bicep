@@ -1,7 +1,10 @@
+@description('Base name used for naming VNet, NSGs, and DNS zones.')
 param name string
+
+@description('Azure region for the networking resources deployment.')
 param location string
 
-@description('Resource tags to apply to all resources')
+@description('Resource tags to apply to all resources.')
 param tags object = {}
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {

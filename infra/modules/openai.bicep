@@ -1,8 +1,18 @@
+@description('Name of the Azure OpenAI Cognitive Services account. Must be globally unique.')
 param name string
+
+@description('Azure region for the OpenAI service deployment.')
 param location string
+
+@description('Enable private endpoint for secure VNet-only access. Disables public network access when true.')
 param enablePrivateEndpoint bool = false
+
+@description('Subnet resource ID for the private endpoint. Required when enablePrivateEndpoint is true.')
 param privateEndpointSubnetId string = ''
+
+@description('Private DNS Zone resource ID for OpenAI private endpoint DNS resolution.')
 param privateDnsZoneId string = ''
+
 @description('Deploy default chat and embedding model deployments.')
 param deployModelDeployments bool = true
 

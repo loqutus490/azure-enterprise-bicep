@@ -1,20 +1,45 @@
+@description('Name of the App Service resource.')
 param name string
+
+@description('Azure region for the App Service Plan.')
 param location string
 
 // SECURITY: @secure() prevents this sensitive value from appearing in deployment logs
+@description('Application Insights instrumentation key for telemetry collection.')
 @secure()
 param appInsightsKey string
 
+@description('Entra ID (Azure AD) client ID for EasyAuth configuration. Leave empty to skip auth setup.')
 param entraClientId string = ''
+
+@description('Enable Entra ID authentication for the App Service.')
 param enableAuth bool = false
+
+@description('List of allowed client application IDs for app-to-app API access validation.')
 param allowedClientApplications array = []
+
+@description('Subnet resource ID for VNet integration. Required when enableVnetIntegration is true.')
 param vnetSubnetId string = ''
+
+@description('Enable VNet integration for secure outbound connectivity.')
 param enableVnetIntegration bool = false
+
+@description('Azure AI Search service endpoint URL.')
 param searchEndpoint string = ''
+
+@description('Name of the search index to query.')
 param searchIndex string = ''
+
+@description('Azure OpenAI service endpoint URL.')
 param openAiEndpoint string = ''
+
+@description('Name of the Azure OpenAI chat model deployment.')
 param openAiDeployment string = ''
+
+@description('Name of the Azure OpenAI embedding model deployment.')
 param openAiEmbeddingDeployment string = ''
+
+@description('Name of the Key Vault for secret references.')
 param keyVaultName string = ''
 @description('App Service plan SKU name (for example: F1, B1, S1).')
 param appServicePlanSkuName string = 'B1'

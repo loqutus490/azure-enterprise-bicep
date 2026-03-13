@@ -1,7 +1,16 @@
+@description('Name of the Storage Account. Must be globally unique, lowercase, and 3-24 characters.')
 param name string
+
+@description('Azure region for the Storage Account deployment.')
 param location string
+
+@description('Enable private endpoint for secure VNet-only blob access. Disables public network access when true.')
 param enablePrivateEndpoint bool = false
+
+@description('Subnet resource ID for the blob private endpoint. Required when enablePrivateEndpoint is true.')
 param privateEndpointSubnetId string = ''
+
+@description('Private DNS Zone resource ID for blob storage private endpoint DNS resolution.')
 param privateDnsZoneId string = ''
 
 @description('Resource tags to apply to all resources')

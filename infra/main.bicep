@@ -3,13 +3,20 @@ targetScope = 'resourceGroup'
 // =============================================
 // Parameters
 // =============================================
+@description('Deployment environment. Determines resource configurations and security settings.')
 @allowed([
   'dev'
   'prod'
 ])
 param environment string
+
+@description('Primary Azure region for resource deployment.')
 param location string = 'westus3'
+
+@description('Azure region for the Storage Account. May differ from primary location for compliance or latency reasons.')
 param storageLocation string = 'eastus'
+
+@description('Prefix used for naming Azure resources. Should be short and alphanumeric.')
 param namePrefix string = 'agent13'
 
 @description('Entra ID app registration client ID for authentication. Leave empty to disable auth.')
