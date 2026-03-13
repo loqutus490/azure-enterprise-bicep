@@ -36,6 +36,52 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
+# =============================================================================
+# SECURITY: URL validation to prevent SSRF and path traversal attacks (CWE-22)
+# =============================================================================
+ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
+
+
+def validate_url(url: str, allowed_schemes: frozenset = ALLOWED_URL_SCHEMES) -> str:
+    """
+    Validate URL scheme to prevent SSRF and path traversal attacks.
+    
+    Args:
+        url: The URL to validate
+        allowed_schemes: Set of allowed URL schemes (default: http, https)
+    
+    Returns:
+        The validated URL
+    
+    Raises:
+        ValueError: If URL scheme is not allowed or URL is malformed
+    """
+    if not url or not isinstance(url, str):
+        raise ValueError("URL must be a non-empty string")
+    
+    parsed = urllib.parse.urlparse(url)
+    
+    if not parsed.scheme:
+        raise ValueError(f"URL missing scheme: {url}")
+    
+    if parsed.scheme.lower() not in allowed_schemes:
+        raise ValueError(
+            f"URL scheme '{parsed.scheme}' not allowed. "
+            f"Allowed schemes: {', '.join(sorted(allowed_schemes))}"
+        )
+    
+    if not parsed.netloc:
+        raise ValueError(f"URL missing host: {url}")
+    
+    # Check for path traversal attempts in the URL path
+    if parsed.path:
+        normalized_path = urllib.parse.unquote(parsed.path)
+        if ".." in normalized_path or normalized_path.startswith("//"):
+            raise ValueError(f"Potential path traversal detected in URL: {url}")
+    
+    return url
+
+
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
 AZURE_OPENAI_EMBEDDING_DIMENSIONS = os.getenv("AZURE_OPENAI_EMBEDDING_DIMENSIONS")
@@ -142,6 +188,9 @@ checksum_supported = True
 def _api_call(method: str, url: str, body: dict | None = None) -> dict:
     if not AZURE_SEARCH_KEY:
         raise RuntimeError("AZURE_SEARCH_KEY is required for index management operations.")
+
+    # SECURITY: Validate URL scheme to prevent SSRF attacks
+    validate_url(url)
 
     data = None
     if body is not None:
@@ -573,6 +622,10 @@ def _graph_token() -> str:
         raise RuntimeError(f"Missing required SharePoint auth environment variables: {', '.join(missing)}")
 
     token_url = f"https://login.microsoftonline.com/{SHAREPOINT_TENANT_ID}/oauth2/v2.0/token"
+    
+    # SECURITY: Validate URL scheme to prevent SSRF attacks
+    validate_url(token_url)
+    
     form_data = urllib.parse.urlencode(
         {
             "client_id": SHAREPOINT_CLIENT_ID,
@@ -594,6 +647,9 @@ def _graph_token() -> str:
 
 @retry(max_attempts=4, initial_delay=1.0, exceptions=(urllib.error.URLError, urllib.error.HTTPError))
 def _graph_get(url: str, token: str) -> dict:
+    # SECURITY: Validate URL scheme to prevent SSRF attacks
+    validate_url(url)
+    
     req = urllib.request.Request(url=url, method="GET")
     req.add_header("Authorization", f"Bearer {token}")
     req.add_header("Accept", "application/json")
@@ -604,6 +660,9 @@ def _graph_get(url: str, token: str) -> dict:
 
 @retry(max_attempts=4, initial_delay=1.0, exceptions=(urllib.error.URLError, urllib.error.HTTPError))
 def _download_sharepoint_file(download_url: str) -> bytes:
+    # SECURITY: Validate URL scheme to prevent SSRF attacks
+    validate_url(download_url)
+    
     req = urllib.request.Request(url=download_url, method="GET")
     with urllib.request.urlopen(req, timeout=120) as response:
         return response.read()

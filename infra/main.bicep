@@ -245,8 +245,22 @@ module budget './modules/budget.bicep' = {
 // =============================================
 // Outputs
 // =============================================
+// NOTE: Only non-sensitive deployment outputs are exposed here.
+// The app URL and service names are needed for deployment automation.
 output appUrl string = app.outputs.appServiceUrl
+output appServiceName string = app.outputs.appServiceName
 output searchService string = search.outputs.searchName
-output openaiEndpoint string = openai.outputs.endpoint
-output keyVaultName string = keyvault.outputs.keyVaultName
-output keyVaultUri string = keyvault.outputs.keyVaultUri
+
+// =============================================================================
+// SECURITY: The following outputs have been removed or commented out to prevent
+// exposure of sensitive infrastructure details in deployment logs and ARM outputs.
+// 
+// Removed outputs:
+// - keyVaultName: Key Vault names should be retrieved securely via Azure CLI/SDK
+// - keyVaultUri: Key Vault URIs can be constructed from the name if needed
+// - openaiEndpoint: OpenAI endpoints should be retrieved securely via Azure CLI/SDK
+//
+// To retrieve these values securely in your pipeline:
+//   az keyvault show --name <vault-name> --query properties.vaultUri
+//   az cognitiveservices account show --name <account-name> -g <rg> --query properties.endpoint
+// =============================================================================
