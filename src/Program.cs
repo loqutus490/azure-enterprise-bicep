@@ -178,10 +178,16 @@ if (!bypassAuthInDevelopment)
 
 app.MapControllers();
 
-var debugRagEnabled = app.Configuration.GetValue<bool>("DebugRag:Enabled");
+var debugRagEnabled = app.Configuration.GetValue<bool?>("DebugRag:Enabled") == true;
+if (!debugRagEnabled)
+{
+    var debugEnv = Environment.GetEnvironmentVariable("DEBUG_RAG");
+    debugRagEnabled = string.Equals(debugEnv, "1", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(debugEnv, "true", StringComparison.OrdinalIgnoreCase);
+}
 if (debugRagEnabled)
 {
-    app.MapPost("/debug/retrieval", async (
+    var debugEndpoint = app.MapPost("/debug/retrieval", async (
         LegalRagApp.Models.AskRequestDto request,
         HttpContext httpContext,
         IRetrievalService retrievalService,
@@ -190,6 +196,11 @@ if (debugRagEnabled)
         var result = await retrievalService.BuildDebugAsync(request, httpContext.User, cancellationToken);
         return Results.Ok(result);
     });
+
+    if (!bypassAuthInDevelopment)
+    {
+        debugEndpoint.RequireAuthorization("ApiAccessPolicy");
+    }
 }
 
 app.Run();

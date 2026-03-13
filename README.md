@@ -60,6 +60,38 @@ Secure internal AI assistant for law firms, built on Azure. Attorneys ask questi
 - **Azure VNet** - Network isolation with private endpoints (prod)
 - **Budget Alerts** - Cost controls per environment
 
+## Request Flow (/ask)
+
+1. **Authentication + authorization**: API validates Entra token scope/role (`ApiAccessPolicy`) and matter claims.  
+2. **Query security + rewrite**: prompt security middleware sanitizes input, then query rewrite service normalizes legal phrasing.  
+3. **Retrieval pipeline** (`IRetrievalService`): vector/hybrid search in Azure AI Search retrieves chunks with metadata.  
+4. **Document-level authorization** (`IAuthorizationFilter`): chunks are filtered by `matterId`, `accessGroup`, and required metadata before prompt assembly.  
+5. **Prompt assembly** (`IPromptBuilder`): grounded context + conversation history are composed into strict JSON-only legal prompt instructions.  
+6. **Generation** (`IChatService`): Azure OpenAI produces structured answer; insufficient context falls back to `Insufficient information in approved documents.`  
+7. **Provenance + response shaping**: citations/source metadata are enriched and returned in `/ask` response (`answer`, `sources`, `sourceMetadata`).  
+8. **Audit + metrics**: structured audit logs include correlation ID, user/claims summary, retrieval counts, source metadata summary, and final answer status.
+
+## Security and Authorization Model
+
+- **Matter-level access control**: requests must include `matterId`; user claims must include permitted matter values.
+- **Group-level document filtering**: retrieved chunks are filtered against `accessGroup` claims before model context is built.
+- **Grounded-only answering**: system prompt forbids unsupported legal conclusions when approved context is missing.
+- **Sensitive data minimization**: diagnostics and audit logs include metadata/snippets, not full document bodies.
+- **Secure defaults**: managed identity and environment-driven configuration are used for Azure Search/OpenAI connectivity (no hardcoded secrets).
+
+## Retrieval Diagnostics Mode
+
+- Endpoint: `POST /debug/retrieval`
+- Gated by configuration: `DebugRag:Enabled=true` or `DEBUG_RAG=true`
+- Intended for protected debugging in controlled environments.
+- Response includes query, user claims summary, raw/filtered counts, source metadata, prompt context preview, and fallback reason.
+
+Example config (local):
+
+```bash
+export DEBUG_RAG=true
+```
+
 ## Repository Structure
 
 ```
@@ -101,7 +133,7 @@ scripts/
 
 - Azure CLI (`az`) installed and logged in
 - .NET 8 SDK
-  - If `dotnet` is missing in your runner/container, use `./scripts/setup-dotnet.sh` and see `docs/DOTNET_SETUP.md`.
+  - If `dotnet` is missing in your runner/container, run `./scripts/preflight-env.sh` first, then use `./scripts/setup-dotnet.sh` and see `docs/DOTNET_SETUP.md`.
 - Python 3.8+ (for document ingestion)
 - An Azure subscription with Owner/Contributor access
 
@@ -257,6 +289,27 @@ The caller token must also contain a permitted matter claim (configurable claim 
 Development-only bypasses (do not use in production):
 - `Authorization:BypassAuthInDevelopment`
 - `Authorization:BypassMatterAuthorizationInDevelopment`
+
+## Local Build and Test
+
+```bash
+dotnet build
+dotnet test
+```
+
+Integration tests use fakes/stubs (no live Azure dependency required) via `WebApplicationFactory` and test auth handlers.
+
+## Azure Enterprise Hardening Notes
+
+- Bicep deployment config supports managed identity app settings and environment-specific toggles.
+- Production templates are designed for private networking readiness (VNet/private endpoints modules) and secure transport defaults.
+- Keep debug diagnostics disabled in production unless temporarily required for incident triage.
+
+## Roadmap Ideas
+
+- Entra group overage handling and graph-backed claim expansion.
+- Per-document legal hold and retention policy enforcement in retrieval filters.
+- Signed audit export pipeline for downstream compliance systems.
 
 ### 6. Enable Teams Bot
 
