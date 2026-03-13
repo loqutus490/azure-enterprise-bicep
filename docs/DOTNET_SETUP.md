@@ -10,7 +10,8 @@ Use this runbook when `dotnet` is missing and `dotnet build`/`dotnet test` fail.
 
 This script:
 - detects whether `dotnet` is already installed,
-- installs `dotnet-sdk-8.0` via `apt-get`,
+- installs `dotnet-sdk-8.0` via `apt-get` when package feeds are reachable,
+- falls back to Microsoft's `dotnet-install.sh` when `apt-get update` is blocked,
 - prints proxy/network diagnostics if installation fails.
 
 ## 2) Verify

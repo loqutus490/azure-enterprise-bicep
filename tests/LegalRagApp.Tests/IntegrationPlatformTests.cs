@@ -257,6 +257,7 @@ public sealed class LegalRagAppFactory(string environmentName, bool bypassAuthIn
                 ["Authorization:EnableAzureAd"] = "true",
                 ["Authorization:BypassAuthInDevelopment"] = bypassAuthInDevelopment ? "true" : "false",
                 ["Authorization:BypassMatterAuthorizationInDevelopment"] = "true",
+                ["Authorization:LogBypassWarnings"] = "false",
                 ["DebugRag:Enabled"] = debugRagEnabled ? "true" : "false"
             };
 
