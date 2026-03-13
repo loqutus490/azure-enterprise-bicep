@@ -1,9 +1,13 @@
 param name string
 param location string
 
+@description('Resource tags to apply to all resources')
+param tags object = {}
+
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: 'law-${name}'
   location: location
+  tags: tags
   properties: {
     sku: {
       name: 'PerGB2018'
@@ -15,6 +19,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: name
   location: location
+  tags: tags
   kind: 'web'
   properties: {
     Application_Type: 'web'
@@ -24,3 +29,4 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 
 output instrumentationKey string = appInsights.properties.InstrumentationKey
 output appInsightsId string = appInsights.id
+output logAnalyticsWorkspaceId string = logAnalytics.id

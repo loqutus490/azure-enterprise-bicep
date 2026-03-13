@@ -6,9 +6,16 @@ param privateDnsZoneId string = ''
 @description('Deploy default chat and embedding model deployments.')
 param deployModelDeployments bool = true
 
+@description('Resource tags to apply to all resources')
+param tags object = {}
+
+@description('Log Analytics Workspace ID for diagnostic settings')
+param logAnalyticsWorkspaceId string = ''
+
 resource openai 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   name: name
   location: location
+  tags: tags
   kind: 'OpenAI'
   sku: {
     name: 'S0'
@@ -23,6 +30,7 @@ resource openai 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
 resource openaiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (enablePrivateEndpoint) {
   name: 'pe-${name}'
   location: location
+  tags: tags
   properties: {
     subnet: {
       id: privateEndpointSubnetId
@@ -86,6 +94,53 @@ resource embeddingModel 'Microsoft.CognitiveServices/accounts/deployments@2023-0
       name: 'text-embedding-3-large'
       version: '1'
     }
+  }
+}
+
+// =============================================
+// Diagnostic Settings
+// =============================================
+resource openaiDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId)) {
+  name: 'diag-${name}'
+  scope: openai
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        category: 'Audit'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'RequestResponse'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'Trace'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+    ]
   }
 }
 

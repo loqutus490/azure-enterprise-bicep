@@ -41,9 +41,16 @@ param bypassMatterAuthorizationInDevelopment bool = true
 @description('Enable protected retrieval diagnostics endpoint.')
 param debugRagEnabled bool = false
 
+@description('Resource tags to apply to all resources')
+param tags object = {}
+
+@description('Log Analytics Workspace ID for diagnostic settings')
+param logAnalyticsWorkspaceId string = ''
+
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = if (empty(existingAppServicePlanResourceId)) {
   name: 'plan-${name}'
   location: location
+  tags: tags
   kind: 'linux'
   sku: {
     name: appServicePlanSkuName
@@ -59,6 +66,7 @@ var serverFarmId = empty(existingAppServicePlanResourceId) ? appServicePlan.id :
 resource appService 'Microsoft.Web/sites@2023-01-01' = {
   name: name
   location: appLocation
+  tags: tags
   kind: 'app,linux'
   identity: {
     type: 'SystemAssigned'
@@ -203,6 +211,69 @@ resource authSettings 'Microsoft.Web/sites/config@2023-01-01' = if (enableAuth) 
         enabled: false
       }
     }
+  }
+}
+
+// =============================================
+// Diagnostic Settings
+// =============================================
+resource appServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId)) {
+  name: 'diag-${name}'
+  scope: appService
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        category: 'AppServiceHTTPLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'AppServiceConsoleLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'AppServiceAppLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'AppServiceAuditLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'AppServicePlatformLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+    ]
   }
 }
 
