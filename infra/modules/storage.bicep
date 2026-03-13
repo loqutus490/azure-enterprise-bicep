@@ -4,9 +4,16 @@ param enablePrivateEndpoint bool = false
 param privateEndpointSubnetId string = ''
 param privateDnsZoneId string = ''
 
+@description('Resource tags to apply to all resources')
+param tags object = {}
+
+@description('Log Analytics Workspace ID for diagnostic settings')
+param logAnalyticsWorkspaceId string = ''
+
 resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: name
   location: location
+  tags: tags
   sku: {
     name: 'Standard_LRS'
   }
@@ -26,6 +33,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
 resource blobPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (enablePrivateEndpoint) {
   name: 'pe-${name}-blob'
   location: location
+  tags: tags
   properties: {
     subnet: {
       id: privateEndpointSubnetId
@@ -53,6 +61,58 @@ resource blobDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2
         name: 'config'
         properties: {
           privateDnsZoneId: privateDnsZoneId
+        }
+      }
+    ]
+  }
+}
+
+// =============================================
+// Diagnostic Settings for Blob Service
+// =============================================
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' existing = {
+  parent: storage
+  name: 'default'
+}
+
+resource storageDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId)) {
+  name: 'diag-${name}-blob'
+  scope: blobService
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        category: 'StorageRead'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'StorageWrite'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'StorageDelete'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+    ]
+    metrics: [
+      {
+        category: 'Transaction'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
         }
       }
     ]

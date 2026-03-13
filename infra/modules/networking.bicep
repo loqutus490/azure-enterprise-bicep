@@ -1,9 +1,13 @@
 param name string
 param location string
 
+@description('Resource tags to apply to all resources')
+param tags object = {}
+
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   name: 'vnet-${name}'
   location: location
+  tags: tags
   properties: {
     addressSpace: {
       addressPrefixes: [
@@ -53,6 +57,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
 resource appNsg 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
   name: 'nsg-app-${name}'
   location: location
+  tags: tags
   properties: {
     securityRules: [
       {
@@ -88,6 +93,7 @@ resource appNsg 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
 resource peNsg 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
   name: 'nsg-pe-${name}'
   location: location
+  tags: tags
   properties: {
     securityRules: [
       {
@@ -110,6 +116,7 @@ resource peNsg 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
 resource botNsg 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
   name: 'nsg-bot-${name}'
   location: location
+  tags: tags
   properties: {
     securityRules: [
       {
@@ -146,22 +153,25 @@ resource botNsg 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
 resource searchDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: 'privatelink.search.windows.net'
   location: 'global'
+  tags: tags
 }
 
 resource openaiDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: 'privatelink.openai.azure.com'
   location: 'global'
+  tags: tags
 }
 
 resource kvDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: 'privatelink.vaultcore.azure.net'
   location: 'global'
+  tags: tags
 }
-
 
 resource blobDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: 'privatelink.blob.core.windows.net'
   location: 'global'
+  tags: tags
 }
 
 resource searchDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {

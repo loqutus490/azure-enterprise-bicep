@@ -54,6 +54,33 @@ param debugRagEnabled bool = false
 @description('Append a deterministic unique suffix to globally unique resource names (Search/OpenAI) to avoid naming collisions.')
 param useUniqueNames bool = false
 
+// =============================================
+// Resource Tagging Parameters
+// =============================================
+@description('Project or application name for resource tagging.')
+param projectName string = 'LegalRagApp'
+
+@description('Cost center code for billing and chargeback.')
+param costCenter string = ''
+
+@description('Owner or team responsible for these resources.')
+param owner string = ''
+
+@description('Deployment timestamp for tagging. Auto-generated if not specified.')
+param deploymentDate string = utcNow('yyyy-MM-dd')
+
+// =============================================
+// Common Tags
+// =============================================
+var commonTags = {
+  Environment: environment
+  Project: projectName
+  CostCenter: costCenter
+  Owner: owner
+  DeploymentDate: deploymentDate
+  ManagedBy: 'Bicep'
+}
+
 var uniqueSuffix = toLower(substring(uniqueString(resourceGroup().id, environment), 0, 6))
 var searchServiceName = useUniqueNames ? '${namePrefix}-search-${environment}-${uniqueSuffix}' : '${namePrefix}-search-${environment}'
 var openAiAccountName = useUniqueNames ? '${namePrefix}-openai-${environment}-${uniqueSuffix}' : '${namePrefix}-openai-${environment}'
@@ -68,6 +95,7 @@ module networking './modules/networking.bicep' = if (enableNetworking) {
   params: {
     name: '${namePrefix}-${environment}'
     location: location
+    tags: commonTags
   }
 }
 
@@ -82,6 +110,8 @@ module storage './modules/storage.bicep' = {
     enablePrivateEndpoint: enableNetworking
     privateEndpointSubnetId: enableNetworking ? (networking.?outputs.?peSubnetId ?? '') : ''
     privateDnsZoneId: enableNetworking ? (networking.?outputs.?blobDnsZoneId ?? '') : ''
+    tags: commonTags
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
   }
 }
 
@@ -93,6 +123,8 @@ module search './modules/search.bicep' = {
     enablePrivateEndpoint: enableNetworking
     privateEndpointSubnetId: enableNetworking ? (networking.?outputs.?peSubnetId ?? '') : ''
     privateDnsZoneId: enableNetworking ? (networking.?outputs.?searchDnsZoneId ?? '') : ''
+    tags: commonTags
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
   }
 }
 
@@ -108,6 +140,8 @@ module openai './modules/openai.bicep' = {
     enablePrivateEndpoint: enableNetworking
     privateEndpointSubnetId: enableNetworking ? (networking.?outputs.?peSubnetId ?? '') : ''
     privateDnsZoneId: enableNetworking ? (networking.?outputs.?openaiDnsZoneId ?? '') : ''
+    tags: commonTags
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
   }
 }
 
@@ -122,6 +156,8 @@ module keyvault './modules/keyvault.bicep' = {
     enablePrivateEndpoint: enableNetworking
     privateEndpointSubnetId: enableNetworking ? (networking.?outputs.?peSubnetId ?? '') : ''
     privateDnsZoneId: enableNetworking ? (networking.?outputs.?kvDnsZoneId ?? '') : ''
+    tags: commonTags
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
   }
 }
 
@@ -133,6 +169,7 @@ module monitoring './modules/monitoring.bicep' = {
   params: {
     name: '${namePrefix}-insights-${environment}'
     location: location
+    tags: commonTags
   }
 }
 
@@ -166,6 +203,8 @@ module app './modules/appservice.bicep' = {
     bypassAuthInDevelopment: false
     bypassMatterAuthorizationInDevelopment: environment == 'dev'
     debugRagEnabled: debugRagEnabled
+    tags: commonTags
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
   }
 }
 
@@ -178,7 +217,8 @@ resource searchService 'Microsoft.Search/searchServices@2023-11-01' existing = {
 }
 
 resource keyVaultResource 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
-  name: keyvault.outputs.keyVaultName
+  name: keyVaultName
+  dependsOn: [keyvault]
 }
 
 var openAiUserRoleDefinitionId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
@@ -209,7 +249,7 @@ resource searchDataReaderRoleAssignment 'Microsoft.Authorization/roleAssignments
 
 
 resource keyVaultSecretsUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployRoleAssignments) {
-  name: guid(keyvault.outputs.keyVaultId, appResourceName, keyVaultSecretsUserRoleDefinitionId)
+  name: guid(keyVaultResource.id, appResourceName, keyVaultSecretsUserRoleDefinitionId)
   scope: keyVaultResource
   properties: {
     principalId: app.outputs.appServicePrincipalId
@@ -227,6 +267,7 @@ module bot './modules/botservice.bicep' = if (botEntraAppId != '') {
     name: '${namePrefix}-bot-${environment}'
     appServiceUrl: app.outputs.appServiceUrl
     entraAppId: botEntraAppId
+    tags: commonTags
   }
 }
 

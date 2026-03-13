@@ -2,9 +2,13 @@ param name string
 param appServiceUrl string
 param entraAppId string
 
+@description('Resource tags to apply to all resources')
+param tags object = {}
+
 resource bot 'Microsoft.BotService/botServices@2022-09-15' = {
   name: name
   location: 'global'
+  tags: tags
   kind: 'azurebot'
   sku: {
     name: 'S1'
