@@ -1,4 +1,7 @@
+@description('Deployment environment name used for budget resource naming.')
 param environment string
+
+@description('Monthly budget amount in the subscription currency (e.g., USD).')
 param amount int
 
 @description('Email addresses to receive budget alert notifications.')

@@ -1,7 +1,10 @@
+@description('Base name for the Application Insights and Log Analytics workspace resources.')
 param name string
+
+@description('Azure region for the monitoring resources deployment.')
 param location string
 
-@description('Resource tags to apply to all resources')
+@description('Resource tags to apply to all resources.')
 param tags object = {}
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {

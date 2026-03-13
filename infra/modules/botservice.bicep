@@ -1,8 +1,13 @@
+@description('Name of the Azure Bot Service resource.')
 param name string
+
+@description('Base URL of the App Service hosting the bot messaging endpoint.')
 param appServiceUrl string
+
+@description('Entra ID (Azure AD) application ID for bot authentication.')
 param entraAppId string
 
-@description('Resource tags to apply to all resources')
+@description('Resource tags to apply to all resources.')
 param tags object = {}
 
 resource bot 'Microsoft.BotService/botServices@2022-09-15' = {
