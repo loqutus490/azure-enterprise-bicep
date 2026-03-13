@@ -195,7 +195,8 @@ public sealed class RetrievalService : IRetrievalService
         SourceFile = c.SourceFile ?? "unknown",
         SourceId = c.SourceId ?? c.DocumentId ?? "unknown",
         MatterId = c.MatterId ?? "unknown",
-        DocumentType = c.DocumentType ?? "unknown"
+        DocumentType = c.DocumentType ?? "unknown",
+        AccessGroup = c.AccessGroup ?? "unknown"
     };
 
     private static string GetPreferredSourceFile(SearchDocument document)

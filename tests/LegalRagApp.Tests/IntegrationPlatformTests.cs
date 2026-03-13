@@ -191,6 +191,30 @@ public class IntegrationPlatformTests
         Assert.True(payload!.FilteredRetrievalCount > 0);
     }
 
+    [Fact]
+    public async Task DebugEndpointRequiresAuthenticationWhenBypassDisabled()
+    {
+        await using var factory = new LegalRagAppFactory("Development", false, debugRagEnabled: true);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/debug/retrieval", new AskRequestDto { Question = "q", MatterId = "MATTER-001", ConversationId = "d3" });
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AskDiagnosticsSummaryHiddenWhenDebugDisabled()
+    {
+        await using var factory = new LegalRagAppFactory("Development", true, debugRagEnabled: false);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-User", "authorized");
+
+        var response = await client.PostAsJsonAsync("/ask", new AskRequestDto { Question = "What is the termination clause?", MatterId = "MATTER-001", ConversationId = "diag-disabled" });
+        var payload = await ReadJsonResponseAsync<AskResponseDto>(response);
+
+        Assert.NotNull(payload);
+        Assert.Null(payload!.Diagnostics);
+    }
+
     private static async Task<T> ReadJsonResponseAsync<T>(HttpResponseMessage response)
     {
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -235,9 +259,6 @@ public sealed class LegalRagAppFactory(string environmentName, bool bypassAuthIn
                 ["Authorization:BypassAuthInDevelopment"] = bypassAuthInDevelopment ? "true" : "false",
                 ["Authorization:BypassMatterAuthorizationInDevelopment"] = "true",
                 ["Authorization:LogBypassWarnings"] = "false",
-                ["Logging:LogLevel:LegalRagApp"] = "Error",
-                ["Features:EnableQueryRewrite"] = "false",
-                // Double lock for deterministic tests: feature flag OFF + fake rewrite service override below.
                 ["DebugRag:Enabled"] = debugRagEnabled ? "true" : "false"
             };
 
@@ -359,7 +380,8 @@ internal sealed class FakeRetrievalService(IAuthorizationFilter authorizationFil
                 SourceFile = c.SourceFile ?? string.Empty,
                 SourceId = c.SourceId ?? string.Empty,
                 MatterId = c.MatterId ?? string.Empty,
-                DocumentType = c.DocumentType ?? string.Empty
+                DocumentType = c.DocumentType ?? string.Empty,
+                AccessGroup = c.AccessGroup ?? string.Empty
             }).ToList()
         };
     }

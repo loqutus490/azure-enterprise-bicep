@@ -149,12 +149,12 @@ if (allowedClientAppIdSet.Count == 0 && !app.Environment.IsDevelopment())
     logger.LogWarning("Authorization:AllowedClientAppIds is empty outside Development. Any caller app with required scope/role may be allowed.");
 }
 
-if (bypassAuthInDevelopment && logBypassWarnings && StartupWarningState.TryLogAuthBypassWarning())
+if (bypassAuthInDevelopment && logBypassWarnings)
 {
     logger.LogWarning("Authorization bypass is enabled for Development. Do not enable this outside local debugging.");
 }
 
-if (bypassMatterAuthorizationInDevelopment && logBypassWarnings && StartupWarningState.TryLogMatterBypassWarning())
+if (bypassMatterAuthorizationInDevelopment && logBypassWarnings)
 {
     logger.LogWarning("Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.");
 }
@@ -178,10 +178,16 @@ if (!bypassAuthInDevelopment)
 
 app.MapControllers();
 
-var debugRagEnabled = app.Configuration.GetValue<bool>("DebugRag:Enabled");
+var debugRagEnabled = app.Configuration.GetValue<bool?>("DebugRag:Enabled") == true;
+if (!debugRagEnabled)
+{
+    var debugEnv = Environment.GetEnvironmentVariable("DEBUG_RAG");
+    debugRagEnabled = string.Equals(debugEnv, "1", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(debugEnv, "true", StringComparison.OrdinalIgnoreCase);
+}
 if (debugRagEnabled)
 {
-    app.MapPost("/debug/retrieval", async (
+    var debugEndpoint = app.MapPost("/debug/retrieval", async (
         LegalRagApp.Models.AskRequestDto request,
         HttpContext httpContext,
         IRetrievalService retrievalService,
@@ -190,6 +196,11 @@ if (debugRagEnabled)
         var result = await retrievalService.BuildDebugAsync(request, httpContext.User, cancellationToken);
         return Results.Ok(result);
     });
+
+    if (!bypassAuthInDevelopment)
+    {
+        debugEndpoint.RequireAuthorization("ApiAccessPolicy");
+    }
 }
 
 app.Run();

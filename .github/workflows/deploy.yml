@@ -19,14 +19,33 @@ permissions:
   contents: read
   actions: read
 
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch }}-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
 jobs:
-  deploy-dev:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && ((matrix.environment == 'dev' && github.event.workflow_run.head_branch == 'main') || (matrix.environment == 'prod' && github.event.workflow_run.head_branch == 'release')) }}
     runs-on: ubuntu-latest
-    environment: dev
+    timeout-minutes: 45
+    environment: ${{ matrix.environment }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: dev
+            resource_group: rg-legal-dev
+            params_file: infra/params/dev.bicepparam
+          - environment: prod
+            resource_group: rg-legal-prod
+            params_file: infra/params/prod.bicepparam
 
     env:
-      ENVIRONMENT: dev
+      ENVIRONMENT: ${{ matrix.environment }}
+      RESOURCE_GROUP: ${{ matrix.resource_group }}
+      PARAMS_FILE: ${{ matrix.params_file }}
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION || 'westus3' }}
 
     steps:
       - name: Checkout repository
@@ -34,15 +53,12 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Validate Azure OIDC Inputs
+      - name: Validate Azure OIDC inputs
         run: |
           set -euo pipefail
-
           [[ -n "${{ vars.AZURE_CLIENT_ID }}" ]] || { echo "Missing variable: AZURE_CLIENT_ID"; exit 1; }
           [[ -n "${{ vars.AZURE_TENANT_ID }}" ]] || { echo "Missing variable: AZURE_TENANT_ID"; exit 1; }
           [[ -n "${{ vars.AZURE_SUBSCRIPTION_ID }}" ]] || { echo "Missing variable: AZURE_SUBSCRIPTION_ID"; exit 1; }
-
-          echo "Azure OIDC inputs present for environment '${{ env.ENVIRONMENT }}'."
 
       - name: Azure Login
         uses: azure/login@v2
@@ -50,37 +66,33 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          allow-no-subscriptions: true
 
-      - name: Set and Verify Azure Subscription
+      - name: Set and verify Azure subscription
         run: |
           set -euo pipefail
           az account set --subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
           az account show --query "{name:name,id:id,tenantId:tenantId}" -o table
 
-      - name: Validate Bicep
-        run: |
-          az bicep build --file infra/main.bicep
+      - name: Validate Bicep template
+        run: az bicep build --file infra/main.bicep
 
       - name: Deploy Infrastructure
         id: deploy_infra
         run: |
           set -euo pipefail
 
-          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
-          DEPLOYMENT_NAME="infra-${{ env.ENVIRONMENT }}-${{ github.run_id }}"
-          echo "resource_group=$RESOURCE_GROUP" >> "$GITHUB_OUTPUT"
+          DEPLOYMENT_NAME="infra-${ENVIRONMENT}-${GITHUB_RUN_ID}"
           echo "deployment_name=$DEPLOYMENT_NAME" >> "$GITHUB_OUTPUT"
 
           az group create \
             --name "$RESOURCE_GROUP" \
-            --location westus3 \
+            --location "$AZURE_LOCATION" \
             --output none
 
           az deployment group validate \
             --resource-group "$RESOURCE_GROUP" \
             --template-file infra/main.bicep \
-            --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam \
+            --parameters "$PARAMS_FILE" \
             --parameters deployRoleAssignments=false \
             --parameters useUniqueNames=true \
             --output none
@@ -89,100 +101,63 @@ jobs:
             --name "$DEPLOYMENT_NAME" \
             --resource-group "$RESOURCE_GROUP" \
             --template-file infra/main.bicep \
-            --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam \
+            --parameters "$PARAMS_FILE" \
             --parameters deployRoleAssignments=false \
             --parameters useUniqueNames=true \
             --output none
 
-          deployment_output="$(az deployment group show \
-            --name "$DEPLOYMENT_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --query "properties.outputs.appUrl.value" \
-            -o tsv)"
-
-          if [[ -z "$deployment_output" || "$deployment_output" == "null" ]]; then
-            deployment_output="$(az deployment group show \
-              --name "$DEPLOYMENT_NAME" \
-              --resource-group "$RESOURCE_GROUP" \
-              --query "properties.outputs.appServiceUrl.value" \
-              -o tsv)"
+          app_url="$(az deployment group show --name "$DEPLOYMENT_NAME" --resource-group "$RESOURCE_GROUP" --query "properties.outputs.appUrl.value" -o tsv)"
+          if [[ -z "$app_url" || "$app_url" == "null" ]]; then
+            app_url="$(az deployment group show --name "$DEPLOYMENT_NAME" --resource-group "$RESOURCE_GROUP" --query "properties.outputs.appServiceUrl.value" -o tsv)"
           fi
 
-          if [[ -z "$deployment_output" || "$deployment_output" == "null" ]]; then
-            echo "Deployment output appUrl is empty."
-            echo "Deployment outputs were:"
-            az deployment group show \
-              --name "$DEPLOYMENT_NAME" \
-              --resource-group "$RESOURCE_GROUP" \
-              --query "properties.outputs" \
-              -o json
+          if [[ -z "$app_url" || "$app_url" == "null" ]]; then
+            echo "Deployment output appUrl/appServiceUrl is empty."
+            az deployment group show --name "$DEPLOYMENT_NAME" --resource-group "$RESOURCE_GROUP" --query "properties.outputs" -o json
             exit 1
           fi
 
-          echo "app_url=$deployment_output" >> "$GITHUB_OUTPUT"
+          echo "app_url=$app_url" >> "$GITHUB_OUTPUT"
 
-      - name: Output Deployment Errors
+      - name: Output deployment errors
         if: failure()
         run: |
           set -euo pipefail
-          RESOURCE_GROUP="${{ steps.deploy_infra.outputs.resource_group }}"
           DEPLOYMENT_NAME="${{ steps.deploy_infra.outputs.deployment_name }}"
-          echo "Deployment error payload:"
-          az deployment group show \
-            --name "$DEPLOYMENT_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --query "properties.error" \
-            -o json || true
-          echo "Failed deployment operations:"
+          az deployment group show --name "$DEPLOYMENT_NAME" --resource-group "$RESOURCE_GROUP" --query "properties.error" -o json || true
           az deployment operation group list \
             --name "$DEPLOYMENT_NAME" \
             --resource-group "$RESOURCE_GROUP" \
             --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,resourceType:properties.targetResource.resourceType,code:properties.statusMessage.error.code,message:properties.statusMessage.error.message}" \
             -o table || true
-          echo "Failed operation inner status messages:"
-          az deployment operation group list \
-            --name "$DEPLOYMENT_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,statusMessage:properties.statusMessage}" \
-            -o json || true
 
-      - name: Download Backend Artifact
+      - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
           name: backend-publish
           run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           path: ./artifacts/backend
 
-      - name: Resolve Web App
+      - name: Resolve Web App name
         id: resolve_app
         run: |
           set -euo pipefail
           APP_URL="${{ steps.deploy_infra.outputs.app_url }}"
-          if [[ ! "$APP_URL" =~ ^https://[A-Za-z0-9-]+\.azurewebsites\.net/?$ ]]; then
-            echo "Invalid appUrl format: $APP_URL"
-            exit 1
-          fi
+          [[ "$APP_URL" =~ ^https://[A-Za-z0-9-]+\.azurewebsites\.net/?$ ]] || { echo "Invalid app URL: $APP_URL"; exit 1; }
 
           WEBAPP_NAME="$(echo "$APP_URL" | sed -E 's#^https://([^./]+).*#\1#')"
-
-          if [[ -z "$WEBAPP_NAME" || ! "$WEBAPP_NAME" =~ ^[A-Za-z0-9-]+$ ]]; then
-            echo "Unable to derive Web App name from appUrl output: $APP_URL"
-            exit 1
-          fi
+          [[ -n "$WEBAPP_NAME" && "$WEBAPP_NAME" =~ ^[A-Za-z0-9-]+$ ]] || { echo "Unable to derive web app name from $APP_URL"; exit 1; }
 
           echo "name=$WEBAPP_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy Backend Artifact
+      - name: Deploy backend artifact
         run: |
-          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
+          set -euo pipefail
           WEBAPP_NAME="${{ steps.resolve_app.outputs.name }}"
           ARTIFACT_PATH="./artifacts/backend/backend-publish.zip"
 
-          if [[ ! -f "$ARTIFACT_PATH" ]]; then
-            echo "Backend artifact not found at $ARTIFACT_PATH"
-            exit 1
-          fi
+          [[ -f "$ARTIFACT_PATH" ]] || { echo "Backend artifact not found at $ARTIFACT_PATH"; exit 1; }
 
           az webapp deploy \
             --resource-group "$RESOURCE_GROUP" \
@@ -191,241 +166,26 @@ jobs:
             --type zip \
             --output none
 
-          az webapp restart \
-            --name "$WEBAPP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --output none
+          az webapp restart --name "$WEBAPP_NAME" --resource-group "$RESOURCE_GROUP" --output none
 
-      - name: Validate Deployment Health
+      - name: Validate deployment health
         run: |
           set -euo pipefail
-
-          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
           WEBAPP_NAME="${{ steps.resolve_app.outputs.name }}"
-
-          echo "Validating Web App resource: $WEBAPP_NAME"
-          az webapp show --name "$WEBAPP_NAME" --resource-group "$RESOURCE_GROUP" --query "{name:name,state:state,host:defaultHostName}" -o table
-
           HEALTH_URL="https://${WEBAPP_NAME}.azurewebsites.net/ping"
-          echo "Probing health endpoint: $HEALTH_URL"
+
+          az webapp show --name "$WEBAPP_NAME" --resource-group "$RESOURCE_GROUP" --query "{name:name,state:state,host:defaultHostName}" -o table
 
           for attempt in {1..10}; do
             status_code="$(curl -sS -o /tmp/health_response.txt -w "%{http_code}" "$HEALTH_URL" || true)"
-
             if [[ "$status_code" == "200" || "$status_code" == "401" || "$status_code" == "403" ]]; then
               echo "Health probe passed with status: $status_code"
               exit 0
             fi
-
-            echo "Attempt $attempt/10: unexpected status '$status_code'. Retrying in 10s..."
+            echo "Attempt $attempt/10: status '$status_code'. Retrying in 10s..."
             sleep 10
           done
 
-          echo "Health probe failed after retries."
-          cat /tmp/health_response.txt || true
-          exit 1
-
-  deploy-prod:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'release' }}
-    runs-on: ubuntu-latest
-    environment: prod
-
-    env:
-      ENVIRONMENT: prod
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Validate Azure OIDC Inputs
-        run: |
-          set -euo pipefail
-
-          [[ -n "${{ vars.AZURE_CLIENT_ID }}" ]] || { echo "Missing variable: AZURE_CLIENT_ID"; exit 1; }
-          [[ -n "${{ vars.AZURE_TENANT_ID }}" ]] || { echo "Missing variable: AZURE_TENANT_ID"; exit 1; }
-          [[ -n "${{ vars.AZURE_SUBSCRIPTION_ID }}" ]] || { echo "Missing variable: AZURE_SUBSCRIPTION_ID"; exit 1; }
-
-          echo "Azure OIDC inputs present for environment '${{ env.ENVIRONMENT }}'."
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          allow-no-subscriptions: true
-
-      - name: Set and Verify Azure Subscription
-        run: |
-          set -euo pipefail
-          az account set --subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
-          az account show --query "{name:name,id:id,tenantId:tenantId}" -o table
-
-      - name: Validate Bicep
-        run: |
-          az bicep build --file infra/main.bicep
-
-      - name: Deploy Infrastructure
-        id: deploy_infra
-        run: |
-          set -euo pipefail
-
-          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
-          DEPLOYMENT_NAME="infra-${{ env.ENVIRONMENT }}-${{ github.run_id }}"
-          echo "resource_group=$RESOURCE_GROUP" >> "$GITHUB_OUTPUT"
-          echo "deployment_name=$DEPLOYMENT_NAME" >> "$GITHUB_OUTPUT"
-
-          az group create \
-            --name "$RESOURCE_GROUP" \
-            --location westus3 \
-            --output none
-
-          az deployment group validate \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/main.bicep \
-            --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam \
-            --parameters deployRoleAssignments=false \
-            --parameters useUniqueNames=true \
-            --output none
-
-          az deployment group create \
-            --name "$DEPLOYMENT_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/main.bicep \
-            --parameters infra/params/${{ env.ENVIRONMENT }}.bicepparam \
-            --parameters deployRoleAssignments=false \
-            --parameters useUniqueNames=true \
-            --output none
-
-          deployment_output="$(az deployment group show \
-            --name "$DEPLOYMENT_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --query "properties.outputs.appUrl.value" \
-            -o tsv)"
-
-          if [[ -z "$deployment_output" || "$deployment_output" == "null" ]]; then
-            deployment_output="$(az deployment group show \
-              --name "$DEPLOYMENT_NAME" \
-              --resource-group "$RESOURCE_GROUP" \
-              --query "properties.outputs.appServiceUrl.value" \
-              -o tsv)"
-          fi
-
-          if [[ -z "$deployment_output" || "$deployment_output" == "null" ]]; then
-            echo "Deployment output appUrl is empty."
-            echo "Deployment outputs were:"
-            az deployment group show \
-              --name "$DEPLOYMENT_NAME" \
-              --resource-group "$RESOURCE_GROUP" \
-              --query "properties.outputs" \
-              -o json
-            exit 1
-          fi
-
-          echo "app_url=$deployment_output" >> "$GITHUB_OUTPUT"
-
-      - name: Output Deployment Errors
-        if: failure()
-        run: |
-          set -euo pipefail
-          RESOURCE_GROUP="${{ steps.deploy_infra.outputs.resource_group }}"
-          DEPLOYMENT_NAME="${{ steps.deploy_infra.outputs.deployment_name }}"
-          echo "Deployment error payload:"
-          az deployment group show \
-            --name "$DEPLOYMENT_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --query "properties.error" \
-            -o json || true
-          echo "Failed deployment operations:"
-          az deployment operation group list \
-            --name "$DEPLOYMENT_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,resourceType:properties.targetResource.resourceType,code:properties.statusMessage.error.code,message:properties.statusMessage.error.message}" \
-            -o table || true
-          echo "Failed operation inner status messages:"
-          az deployment operation group list \
-            --name "$DEPLOYMENT_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --query "[?properties.provisioningState=='Failed'].{target:properties.targetResource.resourceName,statusMessage:properties.statusMessage}" \
-            -o json || true
-
-      - name: Download Backend Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-publish
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: ./artifacts/backend
-
-      - name: Resolve Web App
-        id: resolve_app
-        run: |
-          set -euo pipefail
-          APP_URL="${{ steps.deploy_infra.outputs.app_url }}"
-          if [[ ! "$APP_URL" =~ ^https://[A-Za-z0-9-]+\.azurewebsites\.net/?$ ]]; then
-            echo "Invalid appUrl format: $APP_URL"
-            exit 1
-          fi
-
-          WEBAPP_NAME="$(echo "$APP_URL" | sed -E 's#^https://([^./]+).*#\1#')"
-
-          if [[ -z "$WEBAPP_NAME" || ! "$WEBAPP_NAME" =~ ^[A-Za-z0-9-]+$ ]]; then
-            echo "Unable to derive Web App name from appUrl output: $APP_URL"
-            exit 1
-          fi
-
-          echo "name=$WEBAPP_NAME" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy Backend Artifact
-        run: |
-          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
-          WEBAPP_NAME="${{ steps.resolve_app.outputs.name }}"
-          ARTIFACT_PATH="./artifacts/backend/backend-publish.zip"
-
-          if [[ ! -f "$ARTIFACT_PATH" ]]; then
-            echo "Backend artifact not found at $ARTIFACT_PATH"
-            exit 1
-          fi
-
-          az webapp deploy \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$WEBAPP_NAME" \
-            --src-path "$ARTIFACT_PATH" \
-            --type zip \
-            --output none
-
-          az webapp restart \
-            --name "$WEBAPP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --output none
-
-      - name: Validate Deployment Health
-        run: |
-          set -euo pipefail
-
-          RESOURCE_GROUP="rg-legal-${{ env.ENVIRONMENT }}"
-          WEBAPP_NAME="${{ steps.resolve_app.outputs.name }}"
-
-          echo "Validating Web App resource: $WEBAPP_NAME"
-          az webapp show --name "$WEBAPP_NAME" --resource-group "$RESOURCE_GROUP" --query "{name:name,state:state,host:defaultHostName}" -o table
-
-          HEALTH_URL="https://${WEBAPP_NAME}.azurewebsites.net/ping"
-          echo "Probing health endpoint: $HEALTH_URL"
-
-          for attempt in {1..10}; do
-            status_code="$(curl -sS -o /tmp/health_response.txt -w "%{http_code}" "$HEALTH_URL" || true)"
-
-            if [[ "$status_code" == "200" || "$status_code" == "401" || "$status_code" == "403" ]]; then
-              echo "Health probe passed with status: $status_code"
-              exit 0
-            fi
-
-            echo "Attempt $attempt/10: unexpected status '$status_code'. Retrying in 10s..."
-            sleep 10
-          done
-
-          echo "Health probe failed after retries."
+          echo "Health probe failed."
           cat /tmp/health_response.txt || true
           exit 1

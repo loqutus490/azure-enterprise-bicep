@@ -26,6 +26,7 @@ public sealed class AskController : ControllerBase
     private readonly bool _bypassMatterAuthorizationInDevelopment;
     private readonly int _conversationMemoryDepth;
     private readonly bool _enableAzureAd;
+    private readonly bool _debugRagEnabled;
 
     public AskController(
         IRetrievalService retrievalService,
@@ -50,6 +51,7 @@ public sealed class AskController : ControllerBase
         _logger = logger;
 
         _enableAzureAd = configuration.GetValue<bool?>("Authorization:EnableAzureAd") ?? true;
+        _debugRagEnabled = IsDebugRagEnabled(configuration);
         _conversationMemoryDepth = configuration.GetValue<int?>("Rag:ConversationMemoryDepth") ?? 5;
         _bypassAuthInDevelopment = environment.IsDevelopment()
             && configuration.GetValue<bool>("Authorization:BypassAuthInDevelopment");
@@ -228,9 +230,7 @@ public sealed class AskController : ControllerBase
                 _conversationMemoryDepth,
                 cancellationToken);
 
-            var finalAnswerStatus = retrieval.Chunks.Count > 0
-                ? "grounded_success"
-                : (retrieval.FallbackReason ?? "fallback_unknown");
+            var finalAnswerStatus = DetermineFinalAnswerStatus(retrieval, structured);
 
             var response = new AskResponseDto
             {
@@ -252,20 +252,25 @@ public sealed class AskController : ControllerBase
                     SourceFile = c.SourceFile ?? string.Empty,
                     SourceId = c.SourceId ?? string.Empty,
                     MatterId = c.MatterId ?? string.Empty,
-                    DocumentType = c.DocumentType ?? string.Empty
+                    DocumentType = c.DocumentType ?? string.Empty,
+                    AccessGroup = c.AccessGroup ?? string.Empty
                 }).ToList(),
-                Diagnostics = new AskDiagnosticsSummaryDto
-                {
-                    RawRetrievalCount = retrieval.RawRetrievedChunkCount,
-                    FilteredRetrievalCount = retrieval.FilteredRetrievedChunkCount,
-                    FinalAnswerStatus = finalAnswerStatus,
-                    FallbackReason = retrieval.FallbackReason
-                }
+                Diagnostics = _debugRagEnabled
+                    ? new AskDiagnosticsSummaryDto
+                    {
+                        RawRetrievalCount = retrieval.RawRetrievedChunkCount,
+                        FilteredRetrievalCount = retrieval.FilteredRetrievedChunkCount,
+                        FinalAnswerStatus = finalAnswerStatus,
+                        FallbackReason = retrieval.FallbackReason
+                    }
+                    : null
             };
 
             HttpContext.Items[AuditLoggingMiddleware.AuditRecordItemKey] = new AskAuditRecord
             {
                 UserId = retrieval.UserClaims.UserId,
+                CorrelationId = requestTraceId,
+                ClaimsSummary = BuildClaimsSummary(retrieval.UserClaims),
                 Question = request.Question,
                 RewrittenQuery = rewrittenQuery,
                 Timestamp = DateTimeOffset.UtcNow,
@@ -275,7 +280,10 @@ public sealed class AskController : ControllerBase
                 ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                 PromptTokens = promptTokens,
                 CompletionTokens = completionTokens,
-                EstimatedCost = estimatedCost
+                EstimatedCost = estimatedCost,
+                RetrievalCount = retrieval.RawRetrievedChunkCount,
+                FilteredCount = retrieval.FilteredRetrievedChunkCount,
+                FinalAnswerStatus = finalAnswerStatus
             };
 
             _logger.LogInformation(
@@ -317,6 +325,39 @@ public sealed class AskController : ControllerBase
 
             return Problem("Unable to process request at this time.");
         }
+    }
+
+    private static string DetermineFinalAnswerStatus(RetrievalResult retrieval, StructuredAnswerDto answer)
+    {
+        if (retrieval.FilteredRetrievedChunkCount == 0)
+            return retrieval.FallbackReason ?? "fallback_no_docs";
+
+        if (string.Equals(answer.Summary, PromptOutputFactory.InsufficientContextSummary, StringComparison.OrdinalIgnoreCase))
+            return "fallback_empty_context";
+
+        return "grounded_success";
+    }
+
+    private static string BuildClaimsSummary(UserClaimsContext userClaims)
+    {
+        var matters = userClaims.PermittedMatters.Count == 0
+            ? "none"
+            : string.Join('|', userClaims.PermittedMatters.OrderBy(m => m, StringComparer.OrdinalIgnoreCase));
+        var groups = userClaims.Groups.Count == 0
+            ? "none"
+            : string.Join('|', userClaims.Groups.OrderBy(g => g, StringComparer.OrdinalIgnoreCase));
+
+        return $"role={userClaims.Role};matters={matters};groups={groups}";
+    }
+
+    private static bool IsDebugRagEnabled(IConfiguration configuration)
+    {
+        if (configuration.GetValue<bool?>("DebugRag:Enabled") == true)
+            return true;
+
+        var debugEnv = Environment.GetEnvironmentVariable("DEBUG_RAG");
+        return string.Equals(debugEnv, "1", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(debugEnv, "true", StringComparison.OrdinalIgnoreCase);
     }
 
     private static ClaimsPrincipal BuildBypassUser(ClaimsPrincipal originalUser, string matterId)
