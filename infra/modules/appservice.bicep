@@ -1,6 +1,10 @@
 param name string
 param location string
+
+// SECURITY: @secure() prevents this sensitive value from appearing in deployment logs
+@secure()
 param appInsightsKey string
+
 param entraClientId string = ''
 param enableAuth bool = false
 param allowedClientApplications array = []

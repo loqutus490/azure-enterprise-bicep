@@ -61,6 +61,10 @@ resource keyVaultDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGrou
   }
 }
 
+// SECURITY NOTE: These outputs are used internally by other modules.
+// They should NOT be exposed in main.bicep outputs to prevent leaking
+// sensitive infrastructure details in deployment logs.
+// The keyVaultName is needed by appservice.bicep for Key Vault references.
 output keyVaultName string = keyVault.name
 output keyVaultUri string = keyVault.properties.vaultUri
 output keyVaultId string = keyVault.id

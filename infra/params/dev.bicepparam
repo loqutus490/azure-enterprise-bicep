@@ -6,9 +6,16 @@ param deployOpenAiModels = false
 param deployRoleAssignments = false
 param searchIndexName = 'agent13-index'
 
-// Entra ID: set after running scripts/setup-entra.sh
-param entraClientId = '<set-in-pipeline-or-local-secrets>'
+// =============================================================================
+// SECURITY NOTE: Sensitive values must be provided via pipeline variables
+// or Azure DevOps/GitHub secrets - NEVER commit real values to source control
+// =============================================================================
+// Entra ID: Set ENTRA_CLIENT_ID pipeline variable after running scripts/setup-entra.sh
+// In GitHub Actions: Use ${{ vars.ENTRA_CLIENT_ID }} or ${{ secrets.ENTRA_CLIENT_ID }}
+// In Azure DevOps: Use $(ENTRA_CLIENT_ID) pipeline variable
+param entraClientId = ''
+
 param allowedClientApplications = []
-// param botEntraAppId = '<your-bot-app-client-id>'
+// param botEntraAppId = '' // Set via pipeline: BOT_ENTRA_APP_ID
 
 param enableNetworking = false
