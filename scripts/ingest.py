@@ -12,7 +12,7 @@ import urllib.request
 import urllib.error
 import argparse
 import urllib.parse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 from openai import AzureOpenAI
@@ -98,6 +98,11 @@ def retry(max_attempts: int = 3, initial_delay: float = 1.0, backoff: float = 2.
     return deco
 
 
+# A list of (page_number, text) pairs returned by format-specific extractors.
+# page_number is 1-indexed. text has already been decoded but not yet cleaned.
+PagedText = list[tuple[int, str]]
+
+
 @dataclass
 class SourceDocument:
     source_name: str
@@ -105,6 +110,8 @@ class SourceDocument:
     raw_bytes: bytes
     text: str
     metadata: dict
+    paged_text: list = field(default_factory=list)  # list[tuple[int, str]]
+    doc_type: str = "text"
 
 
 # ---------------------------
@@ -374,9 +381,138 @@ def _read_text_from_bytes(raw: bytes, source_name: str) -> str:
         return ""
 
 
+def extract_text_from_pdf(raw: bytes, source_name: str) -> PagedText:
+    try:
+        import io
+        import pdfplumber
+    except ImportError:
+        logger.error("pdfplumber not installed. Run: pip install pdfplumber")
+        return []
+    try:
+        pages: PagedText = []
+        with pdfplumber.open(io.BytesIO(raw)) as pdf:
+            for page_num, page in enumerate(pdf.pages, start=1):
+                text = page.extract_text() or ""
+                pages.append((page_num, text))
+        if not any(t.strip() for _, t in pages):
+            logger.warning(
+                "Skipping %s: no text extracted from any PDF page. "
+                "This document may be scanned. Pre-process with OCR before ingesting.",
+                source_name,
+            )
+            return []
+        return pages
+    except Exception as exc:
+        logger.warning("Skipping %s due to PDF extraction error: %s", source_name, exc)
+        return []
+
+
+def extract_text_from_docx(raw: bytes, source_name: str) -> PagedText:
+    try:
+        import io
+        from docx import Document
+    except ImportError:
+        logger.error("python-docx not installed. Run: pip install python-docx")
+        return []
+    try:
+        doc = Document(io.BytesIO(raw))
+        parts = []
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            if not text:
+                continue
+            style_name = (para.style.name or "").lower()
+            if style_name.startswith("heading"):
+                parts.append(f"\n\n{text}")
+            else:
+                parts.append(text)
+        full_text = "\n".join(parts).strip()
+        if not full_text:
+            logger.warning("Skipping %s: DOCX contains no extractable text.", source_name)
+            return []
+        return [(1, full_text)]
+    except Exception as exc:
+        logger.warning("Skipping %s due to DOCX extraction error: %s", source_name, exc)
+        return []
+
+
+def extract_text_from_xlsx(raw: bytes, source_name: str) -> PagedText:
+    try:
+        import io
+        import openpyxl
+    except ImportError:
+        logger.error("openpyxl not installed. Run: pip install openpyxl")
+        return []
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+        sheet_blocks = []
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            rows_text = []
+            for row in ws.iter_rows(values_only=True):
+                cells = [str(cell) if cell is not None else "" for cell in row]
+                if any(c.strip() for c in cells):
+                    rows_text.append("\t".join(cells))
+            if rows_text:
+                sheet_blocks.append(f"Sheet: {sheet_name}\n" + "\n".join(rows_text))
+        if not sheet_blocks:
+            logger.warning("Skipping %s: XLSX contains no data.", source_name)
+            return []
+        return [(1, "\n\n".join(sheet_blocks))]
+    except Exception as exc:
+        logger.warning("Skipping %s due to XLSX extraction error: %s", source_name, exc)
+        return []
+
+
+def extract_text_from_pptx(raw: bytes, source_name: str) -> PagedText:
+    try:
+        import io
+        from pptx import Presentation
+    except ImportError:
+        logger.error("python-pptx not installed. Run: pip install python-pptx")
+        return []
+    try:
+        prs = Presentation(io.BytesIO(raw))
+        pages: PagedText = []
+        for slide_num, slide in enumerate(prs.slides, start=1):
+            texts = []
+            for shape in slide.shapes:
+                if not shape.has_text_frame:
+                    continue
+                for para in shape.text_frame.paragraphs:
+                    line = "".join(run.text for run in para.runs).strip()
+                    if line:
+                        texts.append(line)
+            slide_text = "\n".join(texts).strip()
+            if slide_text:
+                pages.append((slide_num, slide_text))
+        if not pages:
+            logger.warning("Skipping %s: PPTX contains no extractable text.", source_name)
+            return []
+        return pages
+    except Exception as exc:
+        logger.warning("Skipping %s due to PPTX extraction error: %s", source_name, exc)
+        return []
+
+
+def extract_paged_text(raw: bytes, source_name: str) -> tuple[PagedText, str]:
+    """Route raw bytes to the correct extractor. Returns (paged_text, doc_type)."""
+    lowered = source_name.lower()
+    if lowered.endswith(".pdf"):
+        return extract_text_from_pdf(raw, source_name), "pdf"
+    elif lowered.endswith(".docx"):
+        return extract_text_from_docx(raw, source_name), "docx"
+    elif lowered.endswith(".xlsx"):
+        return extract_text_from_xlsx(raw, source_name), "xlsx"
+    elif lowered.endswith(".pptx"):
+        return extract_text_from_pptx(raw, source_name), "pptx"
+    else:
+        text = _read_text_from_bytes(raw, source_name)
+        return ([(1, text)], "text") if text else ([], "text")
+
+
 def _is_supported_text_name(name: str) -> bool:
-    lowered = name.lower()
-    return lowered.endswith(".txt") or lowered.endswith(".md") or lowered.endswith(".csv") or lowered.endswith(".json")
+    return name.lower().endswith((".txt", ".md", ".csv", ".json", ".pdf", ".docx", ".xlsx", ".pptx"))
 
 
 def load_local_documents(documents_folder: str) -> tuple[list[SourceDocument], dict]:
@@ -404,9 +540,10 @@ def load_local_documents(documents_folder: str) -> tuple[list[SourceDocument], d
             logger.warning("Skipping %s because file is empty.", filename)
             continue
 
-        text = _read_text_from_bytes(raw, filename)
-        if not text:
+        paged, doc_type = extract_paged_text(raw, filename)
+        if not paged:
             continue
+        text = clean_text("\n\n".join(t for _, t in paged))
 
         docs.append(
             SourceDocument(
@@ -415,6 +552,8 @@ def load_local_documents(documents_folder: str) -> tuple[list[SourceDocument], d
                 raw_bytes=raw,
                 text=text,
                 metadata=metadata_map.get(filename, {}),
+                paged_text=paged,
+                doc_type=doc_type,
             )
         )
 
@@ -535,9 +674,10 @@ def load_sharepoint_documents() -> tuple[list[SourceDocument], dict]:
             logger.warning("Skipping SharePoint file %s because it is empty.", name)
             continue
 
-        text = _read_text_from_bytes(raw, name)
-        if not text:
+        paged, doc_type = extract_paged_text(raw, name)
+        if not paged:
             continue
+        text = clean_text("\n\n".join(t for _, t in paged))
 
         item_id = item.get("id", "")
         parent_path = item.get("parentReference", {}).get("path", "")
@@ -556,6 +696,8 @@ def load_sharepoint_documents() -> tuple[list[SourceDocument], dict]:
                     "sharepointLastModified": item.get("lastModifiedDateTime", ""),
                     "sharepointSize": item.get("size"),
                 },
+                paged_text=paged,
+                doc_type=doc_type,
             )
         )
 
@@ -900,11 +1042,27 @@ def ingest_documents(source: str, documents_path: str, max_chars: int, overlap: 
             )
         logger.info("🔐 ACL resolved for %s: users=%s groups=%s", filename, allowed_users, allowed_groups)
 
-        chunks = chunk_text(text, max_chars=max_chars, overlap=overlap)
-        logger.info("🧠 Creating embeddings for %d chunk(s)...", len(chunks))
+        all_chunks: list[tuple[int, str]] = []
+        for page_num, page_text in source_doc.paged_text:
+            page_clean = clean_text(page_text)
+            if not page_clean:
+                continue
+            for c in chunk_text(page_clean, max_chars=max_chars, overlap=overlap):
+                all_chunks.append((page_num, c))
 
+        if not all_chunks:
+            logger.warning("Empty after cleaning. Skipping %s", filename)
+            continue
+
+        logger.info(
+            "🧠 Creating embeddings for %d chunk(s) across %d page(s)...",
+            len(all_chunks),
+            len(source_doc.paged_text),
+        )
+
+        chunk_strings = [c for _, c in all_chunks]
         try:
-            response = create_embeddings(chunks)
+            response = create_embeddings(chunk_strings)
             embeddings = [item.embedding for item in response.data]
         except Exception as e:
             logger.error("Failed to create embeddings for %s: %s", filename, e)
@@ -913,7 +1071,7 @@ def ingest_documents(source: str, documents_path: str, max_chars: int, overlap: 
         document_id = (doc_metadata.get("documentId") or source_doc.document_id or filename).strip() if isinstance(doc_metadata, dict) else filename
         document_version = (doc_metadata.get("documentVersion") or DOCUMENT_VERSION_DEFAULT).strip() if isinstance(doc_metadata, dict) else DOCUMENT_VERSION_DEFAULT
 
-        for idx, (chunk_text_val, emb) in enumerate(zip(chunks, embeddings)):
+        for idx, ((page_num, chunk_text_val), emb) in enumerate(zip(all_chunks, embeddings)):
             chunk_id = f"{document_id}::chunk-{idx}"
             documents_to_upload.append(
                 {
@@ -922,8 +1080,9 @@ def ingest_documents(source: str, documents_path: str, max_chars: int, overlap: 
                     "contentVector": emb,
                     "source": filename,
                     "sourceFile": filename,
-                    "page": idx + 1,
+                    "page": page_num,
                     "chunk_index": idx,
+                    "documentType": source_doc.doc_type,
                     "matterId": matter_id,
                     "practiceArea": practice_area,
                     "client": client,
@@ -942,7 +1101,8 @@ def ingest_documents(source: str, documents_path: str, max_chars: int, overlap: 
                 "sourceFile": filename,
                 "checksum": checksum,
                 "ingestionTimestamp": run_ingestion_timestamp,
-                "indexedChunks": len(chunks),
+                "indexedChunks": len(all_chunks),
+                "documentType": source_doc.doc_type,
                 "indexVersion": active_index_name,
                 "eventType": "ingest",
             }
