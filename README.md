@@ -332,9 +332,24 @@ Diagnostics returns compact retrieval metadata only (query, claims summary, coun
 ## Local testing
 
 ```bash
+# If dotnet is missing, bootstrap first
+./scripts/setup-dotnet.sh
+
 dotnet build legal-rag-platform.sln
 dotnet test legal-rag-platform.sln
 ```
+
+If SDK installation fails behind a proxy, follow `docs/DOTNET_SETUP.md` (allowlist + pre-baked image guidance).
+
+New to this? Start with `docs/FIRST_STEPS_LOCAL_SETUP.md` for a beginner-friendly walkthrough of the **first step**.
+
+Quick automation for newcomers:
+
+```bash
+./scripts/do-next-steps.sh
+```
+
+This runs setup, build/test (when `dotnet` is available), and branch cleanup dry-run (when `origin` is configured).
 
 Integration tests use fake test doubles (retrieval/chat/auth identity simulation) and do not require live Azure OpenAI or Azure Search.
 
@@ -356,3 +371,19 @@ Integration tests use fake test doubles (retrieval/chat/auth identity simulation
 - Per-document legal hold and retention policy enforcement.
 - Signed answer provenance bundles for eDiscovery workflows.
 - Policy-as-code authorization rules using externalized entitlement engine.
+
+
+## Branch cleanup
+
+Use `scripts/cleanup-branches.sh` to identify and optionally delete remote branches that are already merged into the base branch.
+
+```bash
+# Dry-run (default)
+./scripts/cleanup-branches.sh --remote origin --base main
+
+# Delete non-protected merged branches
+./scripts/cleanup-branches.sh --remote origin --base main --apply
+```
+
+The script intentionally skips protected branch names (for example `main`, `master`, `develop`, `dev`, and `work`) and supports an optional `--merge` mode for exceptional cases.
+

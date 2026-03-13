@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace LegalRagApp.Tests;
@@ -233,6 +234,10 @@ public sealed class LegalRagAppFactory(string environmentName, bool bypassAuthIn
                 ["Authorization:EnableAzureAd"] = "true",
                 ["Authorization:BypassAuthInDevelopment"] = bypassAuthInDevelopment ? "true" : "false",
                 ["Authorization:BypassMatterAuthorizationInDevelopment"] = "true",
+                ["Authorization:LogBypassWarnings"] = "false",
+                ["Logging:LogLevel:LegalRagApp"] = "Error",
+                ["Features:EnableQueryRewrite"] = "false",
+                // Double lock for deterministic tests: feature flag OFF + fake rewrite service override below.
                 ["DebugRag:Enabled"] = debugRagEnabled ? "true" : "false"
             };
 
@@ -248,6 +253,9 @@ public sealed class LegalRagAppFactory(string environmentName, bool bypassAuthIn
                     options.DefaultScheme = "Test";
                 })
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
+            services.RemoveAll<IRetrievalService>();
+            services.RemoveAll<IChatService>();
+            services.RemoveAll<IQueryRewriteService>();
             services.AddSingleton<IRetrievalService, FakeRetrievalService>();
             services.AddSingleton<IChatService, FakeChatService>();
             services.AddSingleton<IQueryRewriteService, FakeQueryRewriteService>();

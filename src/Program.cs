@@ -142,18 +142,19 @@ var bypassAuthInDevelopment = app.Environment.IsDevelopment()
     && app.Configuration.GetValue<bool>("Authorization:BypassAuthInDevelopment");
 var bypassMatterAuthorizationInDevelopment = app.Environment.IsDevelopment()
     && app.Configuration.GetValue<bool>("Authorization:BypassMatterAuthorizationInDevelopment");
+var logBypassWarnings = app.Configuration.GetValue("Authorization:LogBypassWarnings", true);
 
 if (allowedClientAppIdSet.Count == 0 && !app.Environment.IsDevelopment())
 {
     logger.LogWarning("Authorization:AllowedClientAppIds is empty outside Development. Any caller app with required scope/role may be allowed.");
 }
 
-if (bypassAuthInDevelopment)
+if (bypassAuthInDevelopment && logBypassWarnings && StartupWarningState.TryLogAuthBypassWarning())
 {
     logger.LogWarning("Authorization bypass is enabled for Development. Do not enable this outside local debugging.");
 }
 
-if (bypassMatterAuthorizationInDevelopment)
+if (bypassMatterAuthorizationInDevelopment && logBypassWarnings && StartupWarningState.TryLogMatterBypassWarning())
 {
     logger.LogWarning("Matter-level claim authorization bypass is enabled for Development. Do not enable this outside local debugging.");
 }
@@ -194,3 +195,16 @@ if (debugRagEnabled)
 app.Run();
 
 public partial class Program { }
+
+
+internal static class StartupWarningState
+{
+    private static int _authBypassWarningLogged;
+    private static int _matterBypassWarningLogged;
+
+    public static bool TryLogAuthBypassWarning()
+        => Interlocked.Exchange(ref _authBypassWarningLogged, 1) == 0;
+
+    public static bool TryLogMatterBypassWarning()
+        => Interlocked.Exchange(ref _matterBypassWarningLogged, 1) == 0;
+}
