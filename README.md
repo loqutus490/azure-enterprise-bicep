@@ -94,6 +94,8 @@ export DEBUG_RAG=true
 
 ## Repository Structure
 
+> **Note:** This repository is a monorepo containing backend API code, infrastructure-as-code (Bicep), and a frontend SPA (`agent13-frontend/`). See [`docs/MONOREPO_ARCHITECTURE.md`](docs/MONOREPO_ARCHITECTURE.md) for an explanation of this structure and [`docs/REPOSITORY_SEPARATION_GUIDE.md`](docs/REPOSITORY_SEPARATION_GUIDE.md) for the recommended migration path to separate the frontend into its own repository.
+
 ```
 infra/
   main.bicep                    # Orchestrator - wires all modules
